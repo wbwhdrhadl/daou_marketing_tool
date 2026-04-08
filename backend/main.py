@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from schemas import EmailRequest
 from api.naver_crawler import fetch_naver_news
 from api.mail_sender import send_proposal_email
+from database import engine
+import models
+
 
 app = FastAPI()
 
@@ -13,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+models.Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def root():
