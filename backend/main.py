@@ -1,23 +1,29 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from schemas import ProposalCreate
+# ✅ 파일 이름 변경에 따른 import 수정
+from api.naver_crawler import fetch_naver_news
 
-app = FastAPI(title="DaouData Marketing AI API")
+app = FastAPI()
 
-# ✅ 리액트(Port 3000)와의 통신 허용 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], 
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.get("/")
-def home():
-    return {"status": "running", "message": "다우데이터 백엔드 서버가 시작되었습니다."}
+def root():
+    return {"message": "DaouData Marketing Tool Backend is running"}
 
-@app.post("/api/proposals")
-async def create_proposal(proposal: ProposalCreate):
-    print(f"수신된 제안서: {proposal.target_partner}")
-    return {"message": "제안서가 성공적으로 수신되었습니다.", "data": proposal}
+# ✅ 네이버 뉴스 전용 엔드포인트
+@app.get("/api/news/naver/{keyword}")
+async def get_naver_news(keyword: str):
+    news = fetch_naver_news(keyword)
+    return {
+        "provider": "naver",
+        "keyword": keyword,
+        "count": len(news),
+        "results": news
+    }
