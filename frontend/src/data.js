@@ -11,7 +11,7 @@ export const reportData = [
       { 
         name: '티맥스클라우드', deals: 15, color: '#004EA1',
         contacts: [
-          { name: '김철수 팀장', email: 'cs.kim@tmax.com', dept: '전략사업본부' },
+          { name: '이다은 사원', email: 'ldaeundev@gmail.com', dept: '가상화사업팀' },
           { name: '이영희 매니저', email: 'yh.lee@tmax.com', dept: '기술영업팀' }
         ]
       },

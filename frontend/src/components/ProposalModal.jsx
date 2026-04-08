@@ -64,7 +64,12 @@ const ProposalModal = ({
             </div>
             <div className="space-y-3 mb-8">
               {report?.partners?.find(p => p.name === targetPartner)?.contacts?.map((contact, i) => (
-                <button key={i} onClick={() => generateAIContent(targetPartner, contact)} className="w-full flex items-center justify-between p-4 border-2 border-slate-100 rounded-2xl hover:border-[#004EA1] hover:bg-blue-50 transition-all group text-left">
+                <button 
+                  key={i} 
+                  // ✅ 클릭 시 contact 객체 전체를 generateAIContent로 넘김
+                  onClick={() => generateAIContent(targetPartner, contact)} 
+                  className="w-full flex items-center justify-between p-4 border-2 border-slate-100 rounded-2xl hover:border-[#004EA1] hover:bg-blue-50 transition-all group text-left"
+                >
                   <div>
                     <div className="font-bold text-slate-700 group-hover:text-[#004EA1]">{contact.name}</div>
                     <div className="text-xs text-slate-400">{contact.dept} | {contact.email}</div>
@@ -85,10 +90,21 @@ const ProposalModal = ({
               <button onClick={onClose}><X size={20} /></button>
             </div>
             <div className="flex-1 p-6 flex flex-col">
-              <textarea value={emailContent} onChange={(e) => setEmailContent(e.target.value)} className="flex-1 w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm leading-relaxed outline-none resize-none" />
+              {/* 사용자가 수정할 수 있도록 textarea 연결 */}
+              <textarea 
+                value={emailContent} 
+                onChange={(e) => setEmailContent(e.target.value)} 
+                className="flex-1 w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm leading-relaxed outline-none resize-none focus:ring-2 focus:ring-blue-100 transition-all" 
+              />
               <div className="mt-6 flex gap-3">
-                <button onClick={() => setStep('select')} className="px-6 py-3.5 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl">처음부터</button>
-                <button onClick={onFinish} className="flex-1 py-3.5 bg-[#004EA1] text-white text-sm font-bold rounded-xl shadow-lg flex items-center justify-center gap-2"><Send size={18} /> 메일 보내기</button>
+                <button onClick={() => setStep('select')} className="px-6 py-3.5 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">처음부터</button>
+                {/* ✅ onFinish가 이제 Dashboard의 handleSendEmail을 실행함 */}
+                <button 
+                  onClick={onFinish} 
+                  className="flex-1 py-3.5 bg-[#004EA1] text-white text-sm font-bold rounded-xl shadow-lg hover:bg-blue-800 transition-all flex items-center justify-center gap-2"
+                >
+                  <Send size={18} /> 메일 보내기
+                </button>
               </div>
             </div>
           </div>

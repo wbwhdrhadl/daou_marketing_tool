@@ -14,6 +14,8 @@ const Dashboard = () => {
   const [proposalStep, setProposalStep] = useState(null);
   const [targetPartner, setTargetPartner] = useState('');
   const [emailContent, setEmailContent] = useState('');
+  // ✅ 선택된 담당자 정보를 저장할 상태 추가
+  const [selectedContact, setSelectedContact] = useState(null);
 
   const handleAddTag = () => {
     if (inputValue.trim() && !tags.includes(inputValue.trim())) {
@@ -22,18 +24,55 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ AI 제안서 생성 로직 (신규/업셀링 통합)
   const generateAIContent = (name, contact, isUpsell = false) => {
     const contactName = contact ? contact.name : "담당자";
     setTargetPartner(name);
+    // ✅ 클릭한 담당자 객체(이름, 이메일 등)를 상태에 저장
+    setSelectedContact(contact);
     
-    // 업셀링 모드일 때와 시장 기회 모드일 때 문구 분기
     const content = isUpsell 
-      ? `제목: [기술협력] ${name} 기존 시스템 고도화 및 ${selectedReport.targetSolution} 도입 제안\n\n안녕하세요, ${contactName}님.\n다우데이터 이다은입니다.\n\n현재 운용 중이신 ${selectedReport.currentSolution}에 AI 자동화 기능을 더한 ${selectedReport.targetSolution}을 제안드립니다.\n\n분석 결과, ${selectedReport.aiReason} 측면에서 큰 시너지가 예상됩니다.\n\n상세 내용을 검토해 주시면 감사하겠습니다.`
-      : `제목: [신규제안] ${selectedReport.title} 관련 협업 제안\n\n안녕하세요, ${name} ${contactName}님.\n다우데이터 이다은입니다.\n\n최근 분석된 시장 기회 자료에 따르면 ${name}와 협력할 수 있는 좋은 기회가 있어 연락드렸습니다.`;
+      ? `제목: [기술협력] ${name} 기존 시스템 고도화 및 ${selectedReport.targetSolution} 도입 제안\n\n안녕하세요, ${contactName}님.\n다우데이타 이다은입니다.\n\n현재 운용 중이신 ${selectedReport.currentSolution}에 AI 자동화 기능을 더한 ${selectedReport.targetSolution}을 제안드립니다.\n\n분석 결과, ${selectedReport.aiReason} 측면에서 큰 시너지가 예상됩니다.\n\n상세 내용을 검토해 주시면 감사하겠습니다.`
+      : `제목: [신규제안] ${selectedReport.title} 관련 협업 제안\n\n안녕하세요, ${name} ${contactName}님.\n다우데이타 이다은입니다.\n\n최근 분석된 시장 기회 자료에 따르면 ${name}와 협력할 수 있는 좋은 기회가 있어 연락드렸습니다.`;
     
     setEmailContent(content);
     setProposalStep('write');
+  };
+
+  // ✅ 실제 백엔드로 메일을 쏘는 함수
+  const handleSendEmail = async () => {
+    if (!selectedContact?.email) {
+      alert("수신자 메일 주소를 찾을 수 없습니다.");
+      return;
+    }
+
+    try {
+      // 텍스트 내용에서 제목과 본문을 분리 (제목: 으로 시작하는 첫 줄 추출)
+      const lines = emailContent.split('\n');
+      const subject = lines[0].replace('제목: ', '').trim();
+      const body = lines.slice(1).join('\n').trim();
+
+      const response = await fetch("http://localhost:8000/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          receiver_email: selectedContact.email,
+          subject: subject || "[다우데이타] 제안 메일",
+          content: body
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${selectedContact.name} 담당자님께 메일을 성공적으로 보냈습니다!`);
+        closeAllModals();
+      } else {
+        alert(`❌ 전송 실패: ${result.detail}`);
+      }
+    } catch (error) {
+      console.error("전송 에러:", error);
+      alert("서버 연결 실패. 백엔드가 켜져 있는지 확인하세요.");
+    }
   };
 
   const closeAllModals = () => {
@@ -41,6 +80,7 @@ const Dashboard = () => {
     setProposalStep(null);
     setEmailContent('');
     setTargetPartner('');
+    setSelectedContact(null); // ✅ 연락처 초기화
   };
 
   return (
@@ -150,7 +190,7 @@ const Dashboard = () => {
         emailContent={emailContent} 
         setEmailContent={setEmailContent}
         onClose={closeAllModals} 
-        onFinish={() => { alert(`제안서 전송 완료!`); closeAllModals(); }}
+        onFinish={handleSendEmail}
       />
     </div>
   );
