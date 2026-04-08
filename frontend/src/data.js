@@ -220,3 +220,22 @@ export const upsellData = [
     ]
   }
 ];
+
+
+
+export const companyDB = {
+  "국가정보자원관리원": {
+    industry: "공공/정부",
+    location: "대구/대전",
+    contacts: [
+      { name: '김정본 사무관', email: 'jbkim@korea.kr', dept: '대구센터 인프라관리과' },
+      { name: '박보안 주무관', email: 'security_park@nirs.go.kr', dept: '보안기획팀' }
+    ]
+  },
+  "기상청": {
+    industry: "공공",
+    contacts: [
+      { name: '최기상 사무관', email: 'weather@kma.go.kr', dept: '정보시스템운영팀' }
+    ]
+  }
+};

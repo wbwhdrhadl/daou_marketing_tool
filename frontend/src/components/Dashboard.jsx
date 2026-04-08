@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Plus, X, BarChart3, Users } from 'lucide-react';
+import { User, Plus, X, BarChart3, Users, Calendar } from 'lucide-react';
 import { reportData, upsellData } from '../data'; 
 
 import ReportCard from './ReportCard';    
@@ -14,8 +14,20 @@ const Dashboard = () => {
   const [proposalStep, setProposalStep] = useState(null);
   const [targetPartner, setTargetPartner] = useState('');
   const [emailContent, setEmailContent] = useState('');
-  // ✅ 선택된 담당자 정보를 저장할 상태 추가
   const [selectedContact, setSelectedContact] = useState(null);
+  const [isManualInput, setIsManualInput] = useState(false);
+
+  // ✅ 날짜 필터 상태 추가 (기본값 설정)
+  const [startDate, setStartDate] = useState('2026-03-01'); 
+  const [endDate, setEndDate] = useState('2026-08-31');
+
+  // ✅ [로직 추가] 날짜 범위에 맞는 리포트만 필터링
+  const filteredReports = reportData.filter(report => {
+    const reportDate = new Date(report.date);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    return reportDate >= start && reportDate <= end;
+  });
 
   const handleAddTag = () => {
     if (inputValue.trim() && !tags.includes(inputValue.trim())) {
@@ -24,29 +36,37 @@ const Dashboard = () => {
     }
   };
 
-  const generateAIContent = (name, contact, isUpsell = false) => {
-    const contactName = contact ? contact.name : "담당자";
-    setTargetPartner(name);
-    // ✅ 클릭한 담당자 객체(이름, 이메일 등)를 상태에 저장
+  const handleContactSelect = (contact, isNew = false) => {
     setSelectedContact(contact);
-    
-    const content = isUpsell 
-      ? `제목: [기술협력] ${name} 기존 시스템 고도화 및 ${selectedReport.targetSolution} 도입 제안\n\n안녕하세요, ${contactName}님.\n다우데이타 이다은입니다.\n\n현재 운용 중이신 ${selectedReport.currentSolution}에 AI 자동화 기능을 더한 ${selectedReport.targetSolution}을 제안드립니다.\n\n분석 결과, ${selectedReport.aiReason} 측면에서 큰 시너지가 예상됩니다.\n\n상세 내용을 검토해 주시면 감사하겠습니다.`
-      : `제목: [신규제안] ${selectedReport.title} 관련 협업 제안\n\n안녕하세요, ${name} ${contactName}님.\n다우데이타 이다은입니다.\n\n최근 분석된 시장 기회 자료에 따르면 ${name}와 협력할 수 있는 좋은 기회가 있어 연락드렸습니다.`;
+    setIsManualInput(isNew);
+    const companyName = selectedReport?.company || selectedReport?.name || targetPartner;
+    generateAIContent(companyName, contact); 
+  };
+
+  const generateAIContent = (name, contact) => {
+    const contactName = contact?.name || "담당자";
+    setSelectedContact(contact); 
+    setTargetPartner(name);
+
+    let content = "";
+    if (activeTab === 'upsell') {
+      content = `제목: [기술협력] ${name} 시스템 고도화 및 ${selectedReport.targetSolution} 도입 제안\n\n안녕하세요, ${contactName}님.\n다우데이터 이다은입니다.\n\n현재 운용 중이신 ${selectedReport.currentSolution}을 분석한 결과...`;
+    } else {
+      content = `제목: [신규제안] ${name} ${contactName}님, ${selectedReport.title} 관련 솔루션 제안\n\n안녕하세요, ${contactName}님.\n다우데이터 이다은입니다.\n\n귀사의 비즈니스 경쟁력 강화를 위해 분석된...`;
+    }
     
     setEmailContent(content);
     setProposalStep('write');
   };
 
-  // ✅ 실제 백엔드로 메일을 쏘는 함수
   const handleSendEmail = async () => {
-    if (!selectedContact?.email) {
-      alert("수신자 메일 주소를 찾을 수 없습니다.");
+    const recipientEmail = selectedContact?.email;
+    if (!recipientEmail) {
+      alert("수신자 이메일 정보가 없습니다. 담당자를 선택하거나 직접 입력해주세요.");
       return;
     }
 
     try {
-      // 텍스트 내용에서 제목과 본문을 분리 (제목: 으로 시작하는 첫 줄 추출)
       const lines = emailContent.split('\n');
       const subject = lines[0].replace('제목: ', '').trim();
       const body = lines.slice(1).join('\n').trim();
@@ -55,23 +75,18 @@ const Dashboard = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          receiver_email: selectedContact.email,
-          subject: subject || "[다우데이타] 제안 메일",
+          receiver_email: recipientEmail,
+          subject: subject,
           content: body
         }),
       });
 
-      const result = await response.json();
-
       if (response.ok) {
-        alert(`✅ ${selectedContact.name} 담당자님께 메일을 성공적으로 보냈습니다!`);
+        alert(`${recipientEmail}로 제안서가 전송되었습니다!`);
         closeAllModals();
-      } else {
-        alert(`❌ 전송 실패: ${result.detail}`);
       }
     } catch (error) {
-      console.error("전송 에러:", error);
-      alert("서버 연결 실패. 백엔드가 켜져 있는지 확인하세요.");
+      alert("전송 실패: " + error.message);
     }
   };
 
@@ -80,7 +95,7 @@ const Dashboard = () => {
     setProposalStep(null);
     setEmailContent('');
     setTargetPartner('');
-    setSelectedContact(null); // ✅ 연락처 초기화
+    setSelectedContact(null); 
   };
 
   return (
@@ -114,25 +129,81 @@ const Dashboard = () => {
 
         {activeTab === 'market' && (
           <>
-            <div className="mb-10 bg-slate-50 p-5 rounded-xl border border-slate-100">
-              <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><Plus size={16} /> 키워드 관리</h3>
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="flex-1 flex flex-wrap items-center gap-2 border-2 border-slate-200 rounded-lg p-2 bg-white">
+            {/* 통합된 컨트롤 패널 영역 */}
+            <div className="mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm">
+              {/* 상단: 키워드 설정 */}
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <Plus size={14} className="text-[#0095D8]" /> 키워드 설정
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 border-2 border-slate-200 rounded-xl p-2 bg-white focus-within:border-[#0095D8] transition-all">
                   {tags.map((tag) => (
-                    <span key={tag} className="flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full text-xs font-bold text-[#004EA1] border border-blue-100">
-                      {tag} <button onClick={() => setTags(tags.filter(t => t !== tag))} className="hover:text-red-500 ml-1"><X size={14} /></button>
+                    <span key={tag} className="flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full text-[11px] font-bold text-[#004EA1] border border-blue-100">
+                      {tag} 
+                      <button onClick={() => setTags(tags.filter(t => t !== tag))} className="hover:text-red-500 ml-1">
+                        <X size={12} />
+                      </button>
                     </span>
                   ))}
-                  <input value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTag()} placeholder="검색어 입력..." className="outline-none text-sm flex-1 bg-transparent" />
+                  <input 
+                    value={inputValue} 
+                    onChange={(e) => setInputValue(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()} 
+                    placeholder="검색어 입력 후 Enter..." 
+                    className="outline-none text-sm flex-1 bg-transparent min-w-[150px] ml-1" 
+                  />
                 </div>
-                <button onClick={handleAddTag} className="bg-[#0095D8] text-white px-8 py-2.5 rounded-lg text-sm font-bold">추가</button>
+              </div>
+
+              {/* 하단 가로 구분선 */}
+              <div className="h-px bg-slate-200 mb-6 w-full" />
+
+              {/* 하단: 분석 기간 설정 (키워드 설정 바로 아래 배치) */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-6">
+                  <h3 className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <Calendar size={14} className="text-[#0095D8]" /> 분석 기간
+                  </h3>
+                  <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+                    <input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)} 
+                      className="bg-transparent text-[12px] font-bold text-slate-600 outline-none cursor-pointer" 
+                    />
+                    <span className="text-slate-300 font-light">|</span>
+                    <input 
+                      type="date" 
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)} 
+                      className="bg-transparent text-[12px] font-bold text-slate-600 outline-none cursor-pointer" 
+                    />
+                  </div>
+                </div>
+                
+                {/* 검색 결과 요약 텍스트 */}
+                <div className="text-[11px] font-medium text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">
+                  현재 설정으로 <span className="text-[#0095D8] font-bold">{filteredReports.length}건</span>의 기회가 발견되었습니다.
+                </div>
               </div>
             </div>
 
+            {/* 리포트 카드 렌더링 영역 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {reportData.map((report) => (
-                <ReportCard key={report.id} report={report} onDetail={(r) => setSelectedReport(r)} onProposal={(r) => { setSelectedReport(r); setProposalStep('select'); }} />
-              ))}
+              {filteredReports.length > 0 ? (
+                filteredReports.map((report) => (
+                  <ReportCard 
+                    key={report.id} 
+                    report={report} 
+                    onDetail={(r) => setSelectedReport(r)} 
+                    onProposal={(r) => { setSelectedReport(r); setProposalStep('select'); }} 
+                  />
+                ))
+              ) : (
+                <div className="col-span-full py-20 text-center bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
+                  <p className="text-slate-400 font-bold">해당 기간 내에 검색된 공고가 없습니다.</p>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -183,9 +254,9 @@ const Dashboard = () => {
         step={proposalStep} 
         setStep={setProposalStep} 
         report={selectedReport}
+        onContactSelect={handleContactSelect}
         targetPartner={targetPartner} 
         setTargetPartner={setTargetPartner}
-        // ✅ activeTab에 따라 업셀링 여부를 함수에 전달
         generateAIContent={(name, contact) => generateAIContent(name, contact, activeTab === 'upsell')}
         emailContent={emailContent} 
         setEmailContent={setEmailContent}
