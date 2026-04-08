@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import './index.css' // 이 줄이 반드시 있어야 디자인이 입혀집니다!
+import './index.css' 
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
