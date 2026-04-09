@@ -16,12 +16,10 @@ const Dashboard = () => {
   const [emailContent, setEmailContent] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
   const [isManualInput, setIsManualInput] = useState(false);
-
-  // ✅ 날짜 필터 상태 추가 (기본값 설정)
   const [startDate, setStartDate] = useState('2026-03-01'); 
   const [endDate, setEndDate] = useState('2026-08-31');
 
-  // ✅ [로직 추가] 날짜 범위에 맞는 리포트만 필터링
+  // 함수 로직 개발
   const filteredReports = reportData.filter(report => {
     const reportDate = new Date(report.date);
     const start = new Date(startDate);
@@ -97,6 +95,7 @@ const Dashboard = () => {
     setTargetPartner('');
     setSelectedContact(null); 
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans text-slate-900">

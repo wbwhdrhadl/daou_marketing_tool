@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-
+from typing import List, Optional
 class EmailRequest(BaseModel):
     receiver_email: EmailStr  # EmailStr을 쓰면 이메일 형식인지 자동으로 검사해줍니다!
     subject: str

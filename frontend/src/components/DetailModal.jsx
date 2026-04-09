@@ -24,7 +24,7 @@ const DetailModal = ({ report, onClose, onStartProposal }) => {
           </section>
 
           <section className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4"><CheckCircle2 size={18} className="text-[#004EA1]" /> 유사 사업 추진 비중</h4>
+            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4"><CheckCircle2 size={18} className="text-[#004EA1]" /> 유사 사업 추진 파트너사 비중</h4>
             <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="flex-1 space-y-2 w-full">
                 {report.partners.map((item, idx) => (

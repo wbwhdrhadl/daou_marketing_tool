@@ -218,6 +218,32 @@ export const upsellData = [
     contacts: [
       { name: '이영희 과장', email: 'yh.lee@hyundai.com', dept: '생산기술부' }
     ]
+  },
+  {
+    id: 'u3',
+    company: '키움증권',
+    currentSolution: 'Citrix VDI (인프라)',
+    targetSolution: 'Nubo VMI (모바일 보안)',
+    status: 'Active',
+    lastContact: '2026-03-15',
+    aiReason: '최근 금융권 망분리 완화 정책으로 모바일 업무 수요 급증. 기존 VDI와 연동 시 보안성 2배 향상 예상.',
+    potential: 95,
+    contacts: [
+      { name: '김철수 팀장', email: 'cs.kim@kiwoom.com', dept: 'IT운영팀' }
+    ]
+  },
+  {
+    id: 'u4',
+    company: '현대자동차',
+    currentSolution: 'Nubo VMI (국내)',
+    targetSolution: '글로벌 스마트팩토리 패키지',
+    status: 'Maintenance',
+    lastContact: '2026-04-02',
+    aiReason: '북미 신규 공장 설립 뉴스 확인됨. 국내 성공 사례를 기반으로 한 해외 확산 제안 적기.',
+    potential: 88,
+    contacts: [
+      { name: '이영희 과장', email: 'yh.lee@hyundai.com', dept: '생산기술부' }
+    ]
   }
 ];
 
