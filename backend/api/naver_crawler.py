@@ -6,137 +6,187 @@ import re
 import hashlib
 from dotenv import load_dotenv
 from datetime import datetime
+from typing import List
 
 load_dotenv()
 
-# Gemini 설정 (무료 티어 안정성을 위해 1.5-flash 권장하나, 설정하신 2.5-flash-lite 유지)
+# Gemini 설정
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('models/gemini-2.5-flash') 
+model = genai.GenerativeModel('models/gemini-2.5-flash-lite') 
 
 CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 
 def generate_unique_id(link: str):
-    """기사 링크로 고유 ID 생성 (중복 방지)"""
     return hashlib.md5(link.encode()).hexdigest()[:20]
 
-def fetch_business_opportunities(keyword: str):
-    """
-    1. 네이버 뉴스 검색 (영업 관련 키워드 포함)
-    2. 파이썬 노이즈 필터링 (주식 등 제외)
-    3. Gemini 영업 분석 (JSON 구조화 및 영업 소스 판단)
-    """
-    # 네이버 검색 시 영업 관련 단어를 포함하여 검색 모수 확보
-    business_signals = "수주 계약 도입 구축 업무협약 이전 DX"
-    query = f"{keyword} ({business_signals.replace(' ', ' | ')})"
+def fetch_business_opportunities(keywords):
+    # 1. 키워드 전처리 (문자열로 들어와도 리스트로 변환)
+    if isinstance(keywords, str):
+        keywords = [k.strip() for k in keywords.replace(",", " ").split() if k.strip()]
     
-    url = f"https://openapi.naver.com/v1/search/news.json?query={query}&display=15&sort=sim"
-    headers = {
-        "X-Naver-Client-Id": CLIENT_ID,
-        "X-Naver-Client-Secret": CLIENT_SECRET
-    }
+    if not keywords:
+        print("❌ 전달된 키워드가 없습니다.")
+        return []
+
+    raw_news_list = []
+    descriptions_to_summarize = []
+    seen_links = set()
+    processed_titles = [] # 제목 유사도 체크용 리스트
     
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200: return []
+    # 제외 키워드 (광고, 증시 노이즈 제거)
+    exclude_words = ["주가", "상승세", "하락세", "특징주", "증시", "코스피", "코스닥", "매수", "개미", "외인", "종목", "시황"]
 
-        items = response.json().get('items', [])
-        if not items: return []
+    print(f"--- 🔍 네이버 검색 시작 (키워드: {keywords}) ---")
+    
+    for kw in keywords:
+        # 단어가 너무 짧으면 스킵 (단, IT/AI 같은 핵심 약어는 허용)
+        if len(kw) < 2 and kw.upper() not in ["IT", "AI"]:
+            continue
 
-        raw_news_list = []
-        descriptions_to_summarize = []
+        business_signals = "수주|계약|도입|구축|협약"
+        query = f"{kw} ({business_signals})"
         
-        # [1단계 필터링] 주식/시황 뉴스 사전 차단
-        exclude_words = ["주가", "상승세", "하락세", "특징주", "증시", "매수", "코스피", "개미"]
-
-        for item in items:
-            title = item['title'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
-            desc = item['description'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
-            
-            if any(word in title for word in exclude_words):
+        url = f"https://openapi.naver.com/v1/search/news.json?query={query}&display=20&sort=sim"
+        headers = {
+            "X-Naver-Client-Id": CLIENT_ID,
+            "X-Naver-Client-Secret": CLIENT_SECRET
+        }
+        
+        try:
+            # ✅ 여기서 response를 정의합니다.
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                print(f"⚠️ 네이버 API 호출 실패: {response.status_code}")
                 continue
 
-            raw_news_list.append({
-                "unique_id": generate_unique_id(item['link']),
-                "source": "Naver News",
-                "title": title,
-                "link": item['link'],
-                "pubDate": item['pubDate']
-            })
-            descriptions_to_summarize.append(f"기사ID {len(raw_news_list)}: {title} - {desc}")
+            items = response.json().get('items', [])
+            print(f"   > [{kw}] 검색 결과: {len(items)}개 발견")
 
-        if not raw_news_list: return []
+            for item in items:
+                link = item['link']
+                # 1단계: 링크 중복 체크
+                if link in seen_links: continue
+                
+                # HTML 태그 제거 및 텍스트 정리
+                title = item['title'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
+                desc = item['description'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
+                
+                # 2단계: 제목 유사도 검사 (제목에서 한글/영어/숫자만 남기고 앞 15자 비교)
+                normalized_title = re.sub(r'[^가-힣a-zA-Z0-9]', '', title)
+                
+                is_duplicate = False
+                for prev_title in processed_titles:
+                    # 제목의 뼈대가 거의 일치하면 중복 기사로 간주
+                    if normalized_title[:15] == prev_title[:15]:
+                        is_duplicate = True
+                        break
+                
+                if is_duplicate: continue
+                
+                # 3단계: 제외 단어 필터링
+                if any(word in title for word in exclude_words): continue
 
-        # [2단계 분석] Gemini에게 영업 가치 판단 및 JSON 구조화 요청
-        combined_text = "\n\n".join(descriptions_to_summarize)
-        prompt = f"""
-        너는 IT 솔루션 B2B 영업 전략가야. 아래 기사들을 분석해서 실제 '영업 기회'가 있는 것만 골라내.
-        
-        [필터링 및 분석 지침]
-        1. 특정 기업/기관이 솔루션을 도입, 계약, 구축, 이전한다는 구체적 실체가 있는 뉴스만 포함해.
-        2. 단순 기술 소개, 일반 트렌드, 인사 동정은 영업 소스가 아니므로 무조건 제외해.
-        3. 영업 기회가 있는 기사만 아래 JSON 형식으로 응답해. 기사가 가치가 없으면 해당 ID는 결과에서 빼버려.
+                raw_news_list.append({
+                    "unique_id": generate_unique_id(link),
+                    "source": "Naver News",
+                    "title": title,
+                    "link": link,
+                    "pubDate": item['pubDate']
+                })
+                
+                # Gemini 전달용 데이터 구성 (ID 포함)
+                descriptions_to_summarize.append(f"기사ID {len(raw_news_list)}: {title}\n본문: {desc}")
+                
+                seen_links.add(link)
+                processed_titles.append(normalized_title)
+                
+        except Exception as e:
+            print(f"⚠️ 검색 에러 ({kw}): {e}")
 
-        [응답 데이터 구조]
-        - company: 도입 주체 기업/기관명
-        - score: 영업 가치 (0-100)
-        - level: 80 이상 'High', 50-79 'Medium', 50 미만 'Low'
-        - keywords: 기술 키워드 3개 리스트
-        - summary: '누가 무엇을 왜 하는지' 영업적 관점에서 2문장 요약
-        - analysis: [기술적 타당성, 긴급도, 예산규모, 경쟁강도] 4가지 수치(0-100) 리스트
+    if not raw_news_list:
+        print("❌ 분석할 기사가 없습니다.")
+        return []
 
-        응답 형식 예시:
-        기사ID 1: {{"company": "기업명", "score": 90, "level": "High", "keywords": ["A", "B", "C"], "summary": "요약", "analysis": [80, 50, 90, 70]}}
+    # --- 🤖 Gemini 분석 시작 ---
+    print(f"--- 🤖 Gemini 분석 시작 ({len(raw_news_list)}개 기사 전달) ---")
 
-        분석할 데이터:
-        {combined_text}
-        """
+    combined_text = "\n\n".join(descriptions_to_summarize)
+    
+    prompt = f"""
+    너는 다우데이터의 IT 솔루션 B2B 영업 전략가야. 
+    아래 뉴스 리스트를 분석해서 가상화, 클라우드 등 IT 솔루션 도입 기회가 있는 항목만 추출해.
+    비슷한 내용의 기사가 여러 개 있다면 가장 정보가 풍부한 것 하나만 선택해.
 
+    반드시 아래의 JSON 배열 형식으로만 응답해. 다른 설명은 하지 마.
+
+    [응답 형식]
+    [
+      {{
+        "original_id": 기사ID번호(숫자),
+        "company": "기업명",
+        "score": 0~100,
+        "level": "High/Medium/Low",
+        "keywords": ["키워드1", "2"],
+        "summary": "영업 기회 요약(2문장)",
+        "analysis": [기술타당성, 긴급도, 예산규모, 경쟁강도]
+      }}
+    ]
+
+    분석 데이터:
+    {combined_text}
+    """
+
+    try:
         ai_response = model.generate_content(prompt)
         ai_text = ai_response.text
+        
+        # JSON 블록 추출
+        json_match = re.search(r'\[\s*{.*}\s*\]', ai_text, re.DOTALL)
+        if json_match:
+            ai_data = json.loads(json_match.group(0))
+        else:
+            ai_data = json.loads(ai_text.strip().replace('```json', '').replace('```', ''))
 
-        # [3단계 파싱] AI의 응답을 가공하여 최종 리스트 생성
         final_results = []
-        for i, res in enumerate(raw_news_list):
+        for item in ai_data:
             try:
-                # 기사ID N: { ... } 형태를 정규식으로 추출
-                pattern = rf"기사ID {i+1}:\s*({{.*?}})"
-                match = re.search(pattern, ai_text, re.DOTALL)
+                idx = int(item.get("original_id", 0)) - 1
+                if idx < 0 or idx >= len(raw_news_list): continue
                 
-                if match:
-                    analysis_data = json.loads(match.group(1))
-                    
-                    # 날짜 형식 변환
-                    try:
-                        dt = datetime.strptime(res['pubDate'], '%a, %d %b %Y %H:%M:%S +0900')
-                        formatted_date = dt.strftime('%b %d, %Y')
-                    except:
-                        formatted_date = res['pubDate']
+                res = raw_news_list[idx]
+                
+                # 날짜 포맷 정리
+                try:
+                    dt = datetime.strptime(res['pubDate'], '%a, %d %b %Y %H:%M:%S +0900')
+                    formatted_date = dt.strftime('%Y-%m-%d')
+                except:
+                    formatted_date = datetime.now().strftime('%Y-%m-%d')
 
-                    # 요청하신 데이터 구조로 최종 조립
-                    final_results.append({
-                        "id": res["unique_id"],
-                        "source": res["source"],
-                        "date": formatted_date,
-                        "company": analysis_data.get("company"),
-                        "title": res["title"],
-                        "score": analysis_data.get("score"),
-                        "level": analysis_data.get("level"),
-                        "link": res["link"],
-                        "keywords": analysis_data.get("keywords"),
-                        "summary": analysis_data.get("summary"),
-                        "analysis": analysis_data.get("analysis")
-                    })
+                final_results.append({
+                    "id": res["unique_id"],
+                    "source": res["source"],
+                    "date": formatted_date,
+                    "company": item.get("company", "알 수 없음"),
+                    "title": res["title"],
+                    "score": item.get("score", 50),
+                    "level": item.get("level", "Medium"),
+                    "link": res["link"],
+                    "keywords": item.get("keywords", []),
+                    "summary": item.get("summary", ""),
+                    "analysis": item.get("analysis", [50, 50, 50, 50])
+                })
             except Exception as e:
-                print(f"⚠️ 파싱 에러 (기사 {i+1}): {e}")
+                continue
 
+        print(f"✅ 최종 결과: {len(final_results)}건 추출 성공")
         return final_results
 
     except Exception as e:
-        print(f"❌ 프로세스 에러: {e}")
+        print(f"❌ Gemini 에러: {e}")
         return []
 
 if __name__ == "__main__":
-    # 실행 테스트
-    news_data = fetch_business_opportunities("가상화")
-    print(json.dumps(news_data, indent=2, ensure_ascii=False))
+    test_keywords = ["가상화", "클라우드"]
+    results = fetch_business_opportunities(test_keywords)
+    print(json.dumps(results, indent=2, ensure_ascii=False))

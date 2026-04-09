@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def send_proposal_email(receiver_email: str, subject: str, content: str):
-    # 1. 환경 변수에서 설정 불러오기
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
     sender_email = os.getenv("SENDER_EMAIL")

@@ -8,9 +8,10 @@ from api.google_crawler import fetch_google_news
 from api.naver_crawler import fetch_business_opportunities
 from api.mail_sender import send_proposal_email
 from api.koneps_crawler import fetch_koneps_bids
+from api.generate_email import compose_proposal_email
 
 # 데이터베이스 연결
-from schemas import EmailRequest
+from schemas import EmailRequest, ProposalRequest
 from database import engine
 import models
 from typing import Optional
@@ -87,3 +88,12 @@ async def email_endpoint(request: EmailRequest):
         raise HTTPException(status_code=500, detail=result["message"])
 
 
+@app.post("/api/generate-proposal")
+async def generate_proposal(req: ProposalRequest):
+    try:
+        # ✅ 서비스 로직 함수 호출
+        email_content = compose_proposal_email(req.dict())
+        return {"content": email_content}
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="제안서 생성 중 서버 오류 발생")

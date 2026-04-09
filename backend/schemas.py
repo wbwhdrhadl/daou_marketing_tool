@@ -13,3 +13,12 @@ class EmailRequest(BaseModel):
                 "content": "안녕하세요, 제안서 내용입니다."
             }
         }
+
+class ProposalRequest(BaseModel):
+    title: str
+    summary: str
+    partner_name: str
+    contact_name: str
+    solution_type: str
+    is_upsell: bool
+    current_solution: str = ""
