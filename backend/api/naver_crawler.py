@@ -1,21 +1,36 @@
 import os
 import requests
 import google.generativeai as genai
+import json
+import re
+import hashlib
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
-# Gemini 설정
+# Gemini 설정 (무료 티어 안정성을 위해 1.5-flash 권장하나, 설정하신 2.5-flash-lite 유지)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('models/gemini-2.5-flash-lite')
+model = genai.GenerativeModel('models/gemini-2.5-flash') 
 
 CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 
-def fetch_naver_news(keyword: str):
-    """네이버 뉴스를 가져오고, Gemini로 한꺼번에 요약합니다."""
-    url = f"https://openapi.naver.com/v1/search/news.json?query={keyword}&display=5&sort=sim"
+def generate_unique_id(link: str):
+    """기사 링크로 고유 ID 생성 (중복 방지)"""
+    return hashlib.md5(link.encode()).hexdigest()[:20]
+
+def fetch_business_opportunities(keyword: str):
+    """
+    1. 네이버 뉴스 검색 (영업 관련 키워드 포함)
+    2. 파이썬 노이즈 필터링 (주식 등 제외)
+    3. Gemini 영업 분석 (JSON 구조화 및 영업 소스 판단)
+    """
+    # 네이버 검색 시 영업 관련 단어를 포함하여 검색 모수 확보
+    business_signals = "수주 계약 도입 구축 업무협약 이전 DX"
+    query = f"{keyword} ({business_signals.replace(' ', ' | ')})"
     
+    url = f"https://openapi.naver.com/v1/search/news.json?query={query}&display=15&sort=sim"
     headers = {
         "X-Naver-Client-Id": CLIENT_ID,
         "X-Naver-Client-Secret": CLIENT_SECRET
@@ -25,65 +40,103 @@ def fetch_naver_news(keyword: str):
         response = requests.get(url, headers=headers)
         if response.status_code != 200: return []
 
-        data = response.json()
-        items = data.get('items', [])
-        
+        items = response.json().get('items', [])
         if not items: return []
 
-        news_results = []
+        raw_news_list = []
         descriptions_to_summarize = []
+        
+        # [1단계 필터링] 주식/시황 뉴스 사전 차단
+        exclude_words = ["주가", "상승세", "하락세", "특징주", "증시", "매수", "코스피", "개미"]
 
-        # 1. 먼저 데이터를 정리하고 요약할 텍스트들을 리스트에 모읍니다.
-        for i, item in enumerate(items):
-            clean_title = item['title'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
-            raw_desc = item['description'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
+        for item in items:
+            title = item['title'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
+            desc = item['description'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"').replace("&amp;", "&")
             
-            news_results.append({
-                "title": clean_title,
-                "original_description": raw_desc,
-                "ai_summary": raw_desc, # 요약 실패를 대비해 기본값 설정
+            if any(word in title for word in exclude_words):
+                continue
+
+            raw_news_list.append({
+                "unique_id": generate_unique_id(item['link']),
+                "source": "Naver News",
+                "title": title,
                 "link": item['link'],
-                "press": "네이버뉴스",
-                "pubDate": item['pubDate'] 
+                "pubDate": item['pubDate']
             })
-            # AI에게 보낼 텍스트 묶음 만들기
-            descriptions_to_summarize.append(f"기사{i+1}: {raw_desc}")
+            descriptions_to_summarize.append(f"기사ID {len(raw_news_list)}: {title} - {desc}")
 
-        # 2. ✅ Gemini에게 딱 한 번만 물어봅니다 (Batch Summary)
-        if news_results:
-            combined_text = "\n\n".join(descriptions_to_summarize)
-            prompt = f"""다음 5개 뉴스 기사 내용을 각각 핵심만 한 문장으로 요약해줘.
-            반드시 아래의 출력 형식을 지켜줘.
-            
-            출력 형식:
-            기사1: 요약내용
-            기사2: 요약내용
-            
-            요약할 내용:
-            {combined_text}"""
+        if not raw_news_list: return []
 
+        # [2단계 분석] Gemini에게 영업 가치 판단 및 JSON 구조화 요청
+        combined_text = "\n\n".join(descriptions_to_summarize)
+        prompt = f"""
+        너는 IT 솔루션 B2B 영업 전략가야. 아래 기사들을 분석해서 실제 '영업 기회'가 있는 것만 골라내.
+        
+        [필터링 및 분석 지침]
+        1. 특정 기업/기관이 솔루션을 도입, 계약, 구축, 이전한다는 구체적 실체가 있는 뉴스만 포함해.
+        2. 단순 기술 소개, 일반 트렌드, 인사 동정은 영업 소스가 아니므로 무조건 제외해.
+        3. 영업 기회가 있는 기사만 아래 JSON 형식으로 응답해. 기사가 가치가 없으면 해당 ID는 결과에서 빼버려.
+
+        [응답 데이터 구조]
+        - company: 도입 주체 기업/기관명
+        - score: 영업 가치 (0-100)
+        - level: 80 이상 'High', 50-79 'Medium', 50 미만 'Low'
+        - keywords: 기술 키워드 3개 리스트
+        - summary: '누가 무엇을 왜 하는지' 영업적 관점에서 2문장 요약
+        - analysis: [기술적 타당성, 긴급도, 예산규모, 경쟁강도] 4가지 수치(0-100) 리스트
+
+        응답 형식 예시:
+        기사ID 1: {{"company": "기업명", "score": 90, "level": "High", "keywords": ["A", "B", "C"], "summary": "요약", "analysis": [80, 50, 90, 70]}}
+
+        분석할 데이터:
+        {combined_text}
+        """
+
+        ai_response = model.generate_content(prompt)
+        ai_text = ai_response.text
+
+        # [3단계 파싱] AI의 응답을 가공하여 최종 리스트 생성
+        final_results = []
+        for i, res in enumerate(raw_news_list):
             try:
-                ai_response = model.generate_content(prompt)
-                # 줄바꿈으로 결과 분리
-                lines = ai_response.text.strip().split('\n')
+                # 기사ID N: { ... } 형태를 정규식으로 추출
+                pattern = rf"기사ID {i+1}:\s*({{.*?}})"
+                match = re.search(pattern, ai_text, re.DOTALL)
                 
-                # 결과를 각 뉴스 항목에 매칭
-                for line in lines:
-                    if ":" in line:
-                        # '기사1: 요약내용' 형태에서 요약내용만 추출
-                        parts = line.split(":", 1)
-                        idx_str = parts[0].replace("기사", "").strip()
-                        if idx_str.isdigit():
-                            idx = int(idx_str) - 1
-                            if 0 <= idx < len(news_results):
-                                news_results[idx]['ai_summary'] = parts[1].strip()
-            
-            except Exception as e:
-                print(f"⚠️ Gemini 일괄 요약 에러: {e}")
-                # 에러가 나면 위에서 설정한 기본값(raw_desc)이 그대로 반환됩니다.
+                if match:
+                    analysis_data = json.loads(match.group(1))
+                    
+                    # 날짜 형식 변환
+                    try:
+                        dt = datetime.strptime(res['pubDate'], '%a, %d %b %Y %H:%M:%S +0900')
+                        formatted_date = dt.strftime('%b %d, %Y')
+                    except:
+                        formatted_date = res['pubDate']
 
-        return news_results
+                    # 요청하신 데이터 구조로 최종 조립
+                    final_results.append({
+                        "id": res["unique_id"],
+                        "source": res["source"],
+                        "date": formatted_date,
+                        "company": analysis_data.get("company"),
+                        "title": res["title"],
+                        "score": analysis_data.get("score"),
+                        "level": analysis_data.get("level"),
+                        "link": res["link"],
+                        "keywords": analysis_data.get("keywords"),
+                        "summary": analysis_data.get("summary"),
+                        "analysis": analysis_data.get("analysis")
+                    })
+            except Exception as e:
+                print(f"⚠️ 파싱 에러 (기사 {i+1}): {e}")
+
+        return final_results
 
     except Exception as e:
-        print(f"❌ 연결 에러: {e}")
+        print(f"❌ 프로세스 에러: {e}")
         return []
+
+if __name__ == "__main__":
+    # 실행 테스트
+    news_data = fetch_business_opportunities("가상화")
+    print(json.dumps(news_data, indent=2, ensure_ascii=False))

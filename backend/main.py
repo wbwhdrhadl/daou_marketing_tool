@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # API 연결
 from api.google_crawler import fetch_google_news
-from api.naver_crawler import fetch_naver_news
+# 함수 이름을 새 이름으로 바꿔서 가져와야 합니다.
+from api.naver_crawler import fetch_business_opportunities
 from api.mail_sender import send_proposal_email
 from api.koneps_crawler import fetch_koneps_bids
 
@@ -32,12 +33,15 @@ models.Base.metadata.create_all(bind=engine)
 # ✅ 네이버 뉴스 전용 엔드포인트
 @app.get("/api/news/naver/{keyword}")
 async def get_naver_news(keyword: str):
-    news = fetch_naver_news(keyword)
+    # 1. 고도화된 영업 기회 분석 함수 호출
+    # (내부에서 네이버 검색 -> 필터링 -> Gemini 분석 -> 데이터 구조화가 진행됩니다)
+    news_opportunities = fetch_business_opportunities(keyword)
+    
     return {
-        "provider": "naver",
+        "provider": "naver_gemini_ai",
         "keyword": keyword,
-        "count": len(news),
-        "results": news
+        "count": len(news_opportunities),
+        "results": news_opportunities  # 이제 분석된 JSON 리스트가 들어갑니다.
     }
 
 # ✅ 구글 뉴스 전용 엔드포인트
