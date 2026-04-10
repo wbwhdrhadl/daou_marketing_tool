@@ -2,9 +2,71 @@ import React, { useState } from 'react';
 import { 
   User, Plus, X, BarChart3, Users, Calendar, Search, 
   Loader2, Terminal, MousePointerClick, Clock, Mail, Building2, ChevronRight,
-  Eye, Timer, Zap, Target, Sparkles, ArrowUpRight, MessageSquare, Briefcase
+  Eye, Timer, Zap, Target, Sparkles, ArrowUpRight, MessageSquare, Briefcase,
+  TrendingUp, FileText // <-- 추가됨
 } from 'lucide-react';
-import { upsellData } from '../data'; 
+// import { upsellData } from '../data'; 
+
+// 2. getDDay 함수 정의 추가
+const getDDay = (targetDate) => {
+  const diff = new Date(targetDate) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const upsellData = [
+  {
+    id: 'U1',
+    company: '키움증권',
+    potential: 94,
+    currentSolution: 'Citrix VDI (On-premise)',
+    targetSolution: 'Citrix DaaS + Nutanix Hybrid Cloud',
+    renewalDate: '2026-08-15',
+    status: 'High Priority',
+    news: [
+      { date: '2026-04-01', title: '키움증권, 차세대 디지털 금융 시스템 전환 가속화', sentiment: 'Positive' },
+      { date: '2026-03-25', title: '금융권 망분리 규제 완화에 따른 재택근무 환경 재정비', sentiment: 'Neutral' }
+    ],
+    businessStrategy: '금융 보안 클라우드 고도화 및 비대면 업무 환경의 완전 자동화 추진 중',
+    contacts: [
+      { 
+        name: '김철수 팀장', 
+        dept: 'IT 인프라팀', 
+        email: 'cs.kim@kiwoom.com',
+        persona: '안정성 중시형',
+        trait: '보수적인 의사결정을 하나, 명확한 비용 절감 수치(TCO)와 보안 인증 데이터에 민감함. 기술적 디테일보다 운영 안정성을 우선시함.'
+      },
+      { 
+        name: '이영희 과장', 
+        dept: '디지털혁신단', 
+        email: 'yh.lee@kiwoom.com',
+        persona: '기술 트렌드 민감형',
+        trait: '최신 클라우드 기술 도입에 적극적. 성능 향상과 사용자 경험(UX) 개선을 통한 내부 만족도 제고에 관심이 많음. 구체적인 PoC 사례 요구 가능성 높음.'
+      }
+    ]
+  },
+  {
+    id: 'U2',
+    company: '사람인',
+    potential: 88,
+    currentSolution: 'Nubo VMI (기본형)',
+    targetSolution: 'Nubo VMI Enterprise + 망분리 고도화',
+    renewalDate: '2026-05-20',
+    status: 'Critical',
+    news: [
+      { date: '2026-04-05', title: '사람인, AI 매칭 서비스 강화를 위한 인프라 확장 투자', sentiment: 'Positive' }
+    ],
+    businessStrategy: '개발 인력의 원격 근무 보안 강화 및 대규모 데이터 처리를 위한 모바일 가상화 확장',
+    contacts: [
+      { 
+        name: '박지성 차장', 
+        dept: '보안운영팀', 
+        email: 'jspark@saramin.co.kr',
+        persona: '효율성 최우선형',
+        trait: '중복 투자를 극도로 싫어함. 기존 시스템과의 완벽한 호환성과 통합 관리 편의성을 강조해야 함. 실무진의 업무 리소스 감소를 핵심 소구점으로 활용할 것.'
+      }
+    ]
+  }
+];
 
 import ReportCard from './ReportCard';    
 import DetailModal from './DetailModal';    
@@ -261,35 +323,80 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* UPSELL TAB CONTENT */}
+        {/* --- UPSELL TAB CONTENT (대폭 강화된 부분) --- */}
         {activeTab === 'upsell' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {upsellData.map((client) => (
-              <div key={client.id} className="group border border-slate-200 rounded-[2rem] p-8 hover:shadow-2xl hover:shadow-blue-100 bg-white transition-all relative overflow-hidden">
-                <div className="absolute top-0 right-0 bg-gradient-to-l from-[#004EA1] to-[#0095D8] text-white px-6 py-2 rounded-bl-2xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles size={14} /> AI Score: {client.potential}%
-                </div>
-                <h4 className="text-2xl font-black text-slate-800 mb-6">{client.company}</h4>
-                <div className="flex justify-between items-center bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
-                  <div className="flex-1">
-                    <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Current</p>
-                    <p className="text-sm font-bold text-slate-600">{client.currentSolution}</p>
-                  </div>
-                  <div className="px-6 flex flex-col items-center">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                       <ArrowUpRight size={20} className="text-[#004EA1]" />
+            {upsellData.map((client) => {
+              const dDay = getDDay(client.renewalDate);
+              return (
+                <div key={client.id} className="group border border-slate-200 rounded-[2.5rem] p-1 bg-white hover:shadow-2xl hover:shadow-blue-100 transition-all relative overflow-hidden">
+                  <div className="p-8">
+                    {/* 상단 갱신 정보 */}
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${dDay < 100 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                            {dDay < 100 ? '갱신 임박' : '계약 유지'}
+                          </span>
+                          <span className="bg-blue-100 text-[#004EA1] px-3 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase">
+                            AI 매칭 {client.potential}%
+                          </span>
+                        </div>
+                        <h4 className="text-3xl font-black text-slate-800 tracking-tighter">{client.company}</h4>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-400 font-black uppercase mb-1">계약 만료 D-Day</p>
+                        <p className={`text-2xl font-black ${dDay < 100 ? 'text-red-500' : 'text-slate-800'}`}>D-{dDay}</p>
+                        <p className="text-[11px] text-slate-400 font-bold">{client.renewalDate}</p>
+                      </div>
+                    </div>
+
+                    {/* 솔루션 정보 카드 */}
+                    <div className="flex justify-between items-center bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100 shadow-inner">
+                      <div className="flex-1">
+                        <p className="text-[10px] text-slate-400 font-black uppercase mb-1">현재 솔루션</p>
+                        <p className="text-sm font-bold text-slate-600">{client.currentSolution}</p>
+                      </div>
+                      <div className="px-6 flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shadow-sm">
+                           <ArrowUpRight size={20} className="text-[#004EA1]" />
+                        </div>
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className="text-[10px] text-[#0095D8] font-black uppercase mb-1">추천 업셀링</p>
+                        <p className="text-sm font-bold text-[#004EA1]">{client.targetSolution}</p>
+                      </div>
+                    </div>
+
+                    {/* 뉴스 및 전략 요약 미리보기 */}
+                    <div className="space-y-4 mb-8">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1 bg-blue-50 p-2 rounded-lg text-[#0095D8]"><TrendingUp size={16}/></div>
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">사업 방향성</p>
+                          <p className="text-sm font-medium text-slate-700 leading-relaxed truncate max-w-[400px]">{client.businessStrategy}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button 
+                          onClick={() => setSelectedReport(client)} 
+                          className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:border-[#0095D8] hover:text-[#0095D8] transition-all flex items-center justify-center gap-2"
+                        >
+                          <FileText size={18} /> 기업 분석 리포트
+                        </button>
+                        <button 
+                          onClick={() => { setSelectedReport(client); setProposalStep('select'); }} 
+                          className="flex-1 py-4 bg-[#004EA1] text-white rounded-2xl font-black text-sm hover:bg-blue-800 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
+                        >
+                          <Sparkles size={18} /> 제안서 발송
+                        </button>
                     </div>
                   </div>
-                  <div className="flex-1 text-right">
-                    <p className="text-[10px] text-[#0095D8] font-black uppercase mb-1">Recommend</p>
-                    <p className="text-sm font-bold text-[#004EA1]">{client.targetSolution}</p>
-                  </div>
                 </div>
-                <button onClick={() => { setSelectedReport(client); setProposalStep('select'); }} className="w-full py-4 bg-[#004EA1] text-white rounded-2xl font-black text-sm hover:bg-blue-800 transition-all shadow-lg shadow-blue-100 active:scale-[0.98]">
-                  AI 맞춤형 업셀링 제안서 작성
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -365,10 +472,12 @@ const Dashboard = () => {
         )}
       </main>
 
-      {/* --- 분석 리포트 상세 모달 (시장 기회 & 인바운드 공통) --- */}
+      {/* --- 분석 리포트 상세 모달 (데이터 통합 대응형) --- */}
       {selectedReport && !proposalStep && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
           <div className="bg-white w-full max-w-4xl rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+            
+            {/* 1. 헤더: 회사명 또는 리포트명 */}
             <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <p className="text-[11px] font-black text-[#0095D8] uppercase tracking-[0.2em] mb-2">Detailed Analysis Report</p>
@@ -381,59 +490,76 @@ const Dashboard = () => {
             </div>
             
             <div className="p-10 overflow-y-auto flex-1 custom-scrollbar">
-              {/* [시장 기회 전용] 요약 섹션 */}
-              {(selectedReport.summary || selectedReport.reason) && (
-                <div className="mb-10 animate-in fade-in duration-500">
-                  <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#004EA1]"><MessageSquare size={18} /></div>
-                    AI 통합 분석 요약
-                  </h3>
-                  <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-slate-700 leading-relaxed font-medium">
-                    {selectedReport.summary || selectedReport.reason}
-                  </div>
-                </div>
-              )}
-
-              {/* [공통] AI 토픽/키워드 섹션 */}
-              <div className="mb-10">
-                <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center"><Zap size={18} className="text-yellow-500" /></div>
-                  AI 기반 핵심 토픽 추출
+              
+              {/* 2. 핵심 분석 요약 (통합 매핑) */}
+              <div className="mb-10 animate-in fade-in duration-500">
+                <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#004EA1]"><MessageSquare size={18} /></div>
+                  AI 통합 분석 결과
                 </h3>
-                <div className="flex flex-wrap gap-3">
-                  {(selectedReport.keywords || tags).map((kw, idx) => (
-                    <span key={idx} className="px-5 py-3 bg-white text-slate-700 text-xs font-black rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2 hover:border-[#0095D8] transition-colors cursor-default">
-                      <span className="text-[#0095D8] font-black">#</span> {kw}
-                    </span>
-                  ))}
+                <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-slate-700 leading-relaxed font-medium">
+                  {/* 데이터 타입에 따라 다른 필드 출력 */}
+                  {selectedReport.businessStrategy || selectedReport.summary || selectedReport.reason || "상세 분석 데이터가 존재하지 않습니다."}
                 </div>
               </div>
 
-              {/* [시장 기회 전용] 추천 파트너사 섹션 */}
-              {activeTab === 'market' && selectedReport.partners && (
-                <div className="mb-10 animate-in fade-in duration-700">
-                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600"><Briefcase size={18} /></div>
-                    추천 협업 파트너사 (매칭 점수 기반)
+              {/* 3. [업셀링/인바운드 전용] 관련 뉴스 또는 키워드 */}
+              {selectedReport.news && (
+                <div className="mb-10">
+                  <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500"><FileText size={18} /></div>
+                    최근 관련 주요 뉴스
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedReport.partners.map((p, idx) => (
-                      <div key={idx} className="p-6 border-2 border-slate-50 rounded-2xl flex items-center justify-between hover:border-[#0095D8]/20 transition-all bg-white shadow-sm">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: p.color }}></div>
-                          <div>
-                            <p className="font-black text-slate-800">{p.name}</p>
-                            <p className="text-[11px] text-slate-400 font-bold uppercase">Recent Deals: {p.deals}건</p>
-                          </div>
-                        </div>
-                        <button className="text-xs font-black text-[#0095D8] px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-[#0095D8] hover:text-white transition-all">연락처 보기</button>
+                  <div className="space-y-3">
+                    {selectedReport.news.map((item, idx) => (
+                      <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl flex justify-between items-center">
+                        <span className="text-sm font-bold text-slate-700">{item.title}</span>
+                        <span className={`text-[10px] px-2 py-1 rounded font-black ${item.sentiment === 'Positive' ? 'bg-green-100 text-green-600' : 'bg-slate-100'}`}>
+                          {item.sentiment}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* [인바운드 전용] 행동 타임라인 섹션 */}
+              {/* 4. 핵심 키워드/토픽 */}
+              <div className="mb-10">
+                <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center"><Zap size={18} className="text-yellow-500" /></div>
+                  주요 핵심 토픽
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {(selectedReport.keywords || tags).map((kw, idx) => (
+                    <span key={idx} className="px-5 py-3 bg-white text-slate-700 text-xs font-black rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2">
+                      <span className="text-[#0095D8]">#</span> {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. [업셀링 전용] 담당자 페르소나 분석 */}
+              {selectedReport.contacts && (
+                <div className="mb-10">
+                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600"><Users size={18} /></div>
+                    의사결정권자 분석
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedReport.contacts.map((c, idx) => (
+                      <div key={idx} className="p-6 border border-slate-100 bg-slate-50/50 rounded-2xl">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="font-black text-slate-800">{c.name} <span className="text-slate-400 text-xs ml-1">{c.dept}</span></p>
+                          <span className="text-[10px] bg-white px-2 py-1 rounded border border-[#0095D8]/20 text-[#004EA1] font-black">{c.persona}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">{c.trait}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 6. [인바운드 전용] 행동 로그 (기존 코드 유지) */}
               {activeTab === 'inbound' && selectedReport.behavior && (
                 <div className="mb-10">
                   <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
@@ -442,7 +568,7 @@ const Dashboard = () => {
                   </h3>
                   <div className="space-y-4">
                     {selectedReport.behavior.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100 hover:border-[#0095D8]/50 transition-all">
+                      <div key={idx} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100">
                         <div className="flex items-center gap-5">
                           <div className="w-10 h-10 bg-[#F8FAFC] rounded-xl flex items-center justify-center text-sm font-black text-slate-400 border border-slate-100">{idx + 1}</div>
                           <div>
