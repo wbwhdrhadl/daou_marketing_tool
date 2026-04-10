@@ -7,7 +7,7 @@ from api.google_crawler import fetch_google_news
 # 함수 이름을 새 이름으로 바꿔서 가져와야 합니다.
 from api.naver_crawler import fetch_business_opportunities
 from api.mail_sender import send_proposal_email
-from api.koneps_crawler import fetch_koneps_bids
+from api.koneps_crawler import fetch_koneps_opportunities
 from api.generate_email import compose_proposal_email
 
 # 데이터베이스 연결
@@ -45,6 +45,21 @@ async def get_naver_news(keyword: str):
         "results": news_opportunities  # 이제 분석된 JSON 리스트가 들어갑니다.
     }
 
+
+@app.get("/api/v1/bids/koneps")
+async def get_koneps_bids(keyword: Optional[str] = None): # ✅ 키워드 없이 호출 가능
+    bids = fetch_koneps_bids(keyword)
+    
+    if isinstance(bids, dict) and "error" in bids:
+        raise HTTPException(status_code=500, detail=bids["error"])
+        
+    return {
+        "count": len(bids),
+        "keyword": keyword or "전체보기",
+        "results": bids
+    }
+
+
 # ✅ 구글 뉴스 전용 엔드포인트
 @app.get("/api/news/google/{keyword}")
 async def get_google_news(keyword: str):
@@ -59,18 +74,6 @@ async def get_google_news(keyword: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/v1/bids/koneps")
-async def get_koneps_bids(keyword: Optional[str] = None): # ✅ 키워드 없이 호출 가능
-    bids = fetch_koneps_bids(keyword)
-    
-    if isinstance(bids, dict) and "error" in bids:
-        raise HTTPException(status_code=500, detail=bids["error"])
-        
-    return {
-        "count": len(bids),
-        "keyword": keyword or "전체보기",
-        "results": bids
-    }
 
 # 메일 전송 전용 엔드포인트
 @app.post("/api/send-email")
@@ -97,3 +100,34 @@ async def generate_proposal(req: ProposalRequest):
     except Exception as e:
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail="제안서 생성 중 서버 오류 발생")
+
+
+@app.get("/api/search-all/{keyword}")
+async def get_combined_opportunities(keyword: str):
+    """
+    네이버 뉴스(Gemini 분석)와 나라장터 공고(Gemini 분석)를 
+    하나의 리스트로 합쳐서 반환합니다.
+    """
+    try:
+        # 1. 각 채널에서 분석된 데이터 가져오기
+        # (앞서 만든 fetch_koneps_opportunities 함수 이름이 fetch_koneps_bids라면 그걸 사용하세요)
+        news_data = fetch_business_opportunities(keyword)
+        bid_data = fetch_koneps_opportunities(keyword) # 또는 fetch_koneps_bids(keyword)
+        
+        # 2. 데이터 통합
+        combined_results = news_data + bid_data
+        
+        # 3. 최신 날짜순으로 정렬 (프론트에서 보기 좋게!)
+        combined_results.sort(key=lambda x: x['date'], reverse=True)
+        
+        return {
+            "keyword": keyword,
+            "total_count": len(combined_results),
+            "news_count": len(news_data),
+            "bid_count": len(bid_data),
+            "results": combined_results
+        }
+        
+    except Exception as e:
+        print(f"통합 검색 에러: {e}")
+        raise HTTPException(status_code=500, detail="데이터를 불러오는 중 오류가 발생했습니다.")

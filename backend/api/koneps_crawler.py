@@ -1,27 +1,38 @@
-import requests
 import os
-from datetime import datetime, timedelta
+import requests
+import google.generativeai as genai
+import json
+import re
+import hashlib
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
 load_dotenv()
 
-def fetch_koneps_bids(keyword=None):
-    """
-    나라장터 API에서 공고를 가져와 통합 스키마 형식으로 반환합니다.
-    """
+# Gemini 설정
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel('models/gemini-2.5-flash') # 사용 중인 모델명 확인
+
+def generate_unique_id(link: str):
+    return hashlib.md5(link.encode()).hexdigest()[:20]
+
+def fetch_koneps_opportunities(keyword=None):
     service_key = os.getenv("KONEPS_API_KEY")
     url = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc"
     
-    # 1. 날짜 범위 설정 (나라장터 API 제한에 따라 7일 간격 유지)
     now = datetime.now()
-    start_date = (now - timedelta(days=7)).strftime('%Y%m%d0000')
+    start_date = (now - timedelta(days=30)).strftime('%Y%m%d0000') 
     end_date = now.strftime('%Y%m%d2359')
     
+    print(f"\n--- 🏛️ 나라장터 API 호출 시작 ---")
+    print(f"📅 조회 기간: {start_date} ~ {end_date}")
+    print(f"🔍 필터 키워드: {keyword}")
+
     params = {
         'serviceKey': service_key,
-        'numOfRows': '300',         # 필터링을 위해 넉넉히 가져옴
+        'numOfRows': '100', 
         'pageNo': '1',
-        'inqryDiv': '1',            # 공고게시일시 기준
+        'inqryDiv': '1',
         'inqryBgnDt': start_date,
         'inqryEndDt': end_date,
         'type': 'json'
@@ -29,71 +40,111 @@ def fetch_koneps_bids(keyword=None):
 
     try:
         response = requests.get(url, params=params, timeout=15)
+        if response.status_code != 200:
+            print(f"❌ API 연결 실패 (HTTP {response.status_code})")
+            return []
+
         data = response.json()
+        items_dict = data.get('response', {}).get('body', {}).get('items', [])
         
-        if 'nkoneps.com.response.ResponseError' in data:
-            print("❌ 나라장터 에러:", data['nkoneps.com.response.ResponseError']['header'])
-            return []
+        # 데이터 구조 정규화
+        if isinstance(items_dict, dict):
+            items = items_dict.get('item', [])
+        else:
+            items = items_dict
+        if isinstance(items, dict): items = [items]
 
-        try:
-            items_dict = data.get('response', {}).get('body', {}).get('items', [])
-            if isinstance(items_dict, dict):
-                items = items_dict.get('item', [])
-            else:
-                items = items_dict
+        print(f"📦 API 서버로부터 총 {len(items)}건의 공고 수신")
 
-            if isinstance(items, dict):
-                items = [items]
-                
-        except (KeyError, TypeError):
-            print("⚠️ [DEBUG] 데이터 추출 실패")
-            return []
-
-        results = []
         if not items:
+            print("⚠️ 해당 기간에 올라온 공고가 하나도 없습니다.")
             return []
+
+        raw_bids_list = []
+        bids_to_analyze = []
+
+        # ✅ 키워드 필터링
+        search_keywords = keyword if isinstance(keyword, list) else (keyword.split(',') if keyword else [])
 
         for item in items:
             title = item.get('bidNtceNm', '')
+            is_matched = not keyword or any(kw.strip() in title for kw in search_keywords)
             
-            # 키워드 필터링
-            if not keyword or keyword.lower() in title.lower():
-                # --- [통합 스키마 적용 파트] ---
-                
-                # 1. 예산 금액 콤마 처리 (예: 100,000,000원)
-                raw_budget = item.get('presmptPrce', "0")
-                try:
-                    formatted_budget = format(int(raw_budget), ',') + "원"
-                except:
-                    formatted_budget = "가격미정"
-
-                # 2. 날짜 형식 표준화 ('2026-04-09 10:00:00' -> '2026-04-09')
-                raw_date = item.get('bidNtceDt', '') # 공고게시일
-                published_at = raw_date[:10] if raw_date else ""
-
-                # 3. 요약 내용 구성 (기관 + 예산 + 마감일)
+            if is_matched:
                 org = item.get('ntceInsttNm', '기관미상')
-                end_date = item.get('bidClseDt', '정보없음')
-                summary_content = f"발주: {org} | 예산: {formatted_budget} | 마감: {end_date}"
-
-                results.append({
+                budget = item.get('presmptPrce', "0")
+                link = item.get('bidNtceDtlUrl', '')
+                raw_bids_list.append({
+                    "unique_id": generate_unique_id(link),
+                    "source": "나라장터",
                     "title": title,
-                    "content": summary_content,      # 요약 문장으로 대체
-                    "link": item.get('bidNtceDtlUrl'),
-                    "published_at": published_at,    # YYYY-MM-DD
-                    "provider": "나라장터",
-                    "category": "tender",
-                    "extra_info": {                  # 나라장터만의 상세 정보 저장
-                        "bid_no": item.get('bidNtceNo'),
-                        "org_name": org,
-                        "budget": raw_budget,
-                        "end_date": end_date
-                    }
+                    "link": link,
+                    "pubDate": item.get('bidNtceDt', '')[:10],
+                    "org": org,
+                    "budget": budget
                 })
+                # Gemini가 어떤 공고인지 매칭할 수 있게 index 번호를 부여합니다.
+                bids_to_analyze.append(f"공고ID {len(raw_bids_list)}: {title}\n발주기관: {org}")
+
+        print(f"🎯 키워드 필터링 결과: {len(raw_bids_list)}건 생존")
+
+        if not raw_bids_list:
+            return []
+
+        # --- 🤖 Gemini 분석 시작 ---
+        print(f"🤖 Gemini 분석 중... ({len(raw_bids_list)}건 전달)")
+        final_results = [] # 👈 결과를 담을 바구니 준비
         
-        print(f"✅ [DEBUG] 나라장터 '{keyword if keyword else '전체'}' 필터링 결과: {len(results)}건")
-        return results
+        combined_text = "\n\n".join(bids_to_analyze[:15]) # 15건까지만 분석 (토큰 제한 방지)
+        
+        prompt = f"""
+        너는 IT 영업 전략가야. 나라장터 공고를 분석해서 다우데이터의 솔루션(VDI, Cloud, Security)과 연관성이 높은 순서대로 추출해.
+        반드시 JSON 배열 형식으로만 대답해.
+
+        [
+          {{
+            "original_id": 숫자,
+            "company": "기관명",
+            "score": 0~100,
+            "level": "High/Medium/Low",
+            "keywords": ["키워드1", "키워드2"],
+            "summary": "사업 기회 요약",
+            "analysis": [기술점수, 시급성, 예산점수, 적합도]
+          }}
+        ]
+
+        데이터:
+        {combined_text}
+        """
+
+        ai_response = model.generate_content(prompt)
+        
+        # JSON 추출
+        json_match = re.search(r'\[\s*{.*}\s*\]', ai_response.text, re.DOTALL)
+        ai_data = json.loads(json_match.group(0)) if json_match else []
+
+        # AI 결과와 원본 데이터를 합침
+        for item in ai_data:
+            idx = int(item.get("original_id", 0)) - 1
+            if 0 <= idx < len(raw_bids_list):
+                res = raw_bids_list[idx]
+                final_results.append({
+                    "id": res["unique_id"],
+                    "source": res["source"],
+                    "date": res["pubDate"],
+                    "company": item.get("company", res["org"]),
+                    "title": res["title"],
+                    "score": item.get("score", 50),
+                    "level": item.get("level", "Medium"),
+                    "link": res["link"],
+                    "keywords": item.get("keywords", []),
+                    "summary": item.get("summary", ""),
+                    "analysis": item.get("analysis", [50, 50, 50, 50])
+                })
+
+        print(f"✅ 최종 분석 완료: {len(final_results)}건 반환")
+        return final_results
 
     except Exception as e:
-        print(f"❌ [DEBUG] 예외 발생: {str(e)}")
+        print(f"❌ 나라장터 로직 에러: {e}")
         return []
