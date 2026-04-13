@@ -143,26 +143,50 @@ const Dashboard = () => {
       {/* MAIN CONTAINER */}
       <main className="max-w-7xl mx-auto">
         {/* TABS NAVIGATION */}
-        <div className="flex p-1.5 bg-slate-200/50 backdrop-blur-md rounded-2xl mb-8 w-fit shadow-inner">
-          {[
-            { id: 'market', icon: <BarChart3 size={18} />, label: '시장 기회 발굴' },
-            { id: 'upsell', icon: <Users size={18} />, label: '기존 고객 Upselling' },
-            { id: 'inbound', icon: <MousePointerClick size={18} />, label: '인바운드 리드 분석' },
-            // 아래 'mailManage' 탭을 추가합니다.
-            { id: 'mailManage', icon: <Mail size={18} />, label: '제안메일 분석' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); closeAllModals(); }}
-              className={`flex items-center gap-2.5 px-6 py-3 rounded-1.5xl font-bold transition-all duration-300 ${
-                activeTab === tab.id 
-                ? 'bg-white text-[#004EA1] shadow-md ring-1 ring-black/5' 
-                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
-              }`}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
+        {/* TABS NAVIGATION - Full Width & Balanced Design */}
+        <div className="max-w-7xl mx-auto mb-10">
+          <div className="flex p-1.5 bg-slate-200/50 backdrop-blur-md rounded-[2.5rem] shadow-inner border border-slate-200/50">
+            {[
+              { id: 'market', icon: <BarChart3 size={19} />, label: '시장 기회 발굴' },
+              { id: 'upsell', icon: <Users size={19} />, label: '기존 고객 Upselling' },
+              { id: 'inbound', icon: <MousePointerClick size={19} />, label: '인바운드 리드 분석' },
+              { id: 'mailManage', icon: <Mail size={19} />, label: '제안메일 분석' }
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); closeAllModals(); }}
+                  className={`
+                    relative flex-1 flex items-center justify-center gap-3 px-4 py-4 rounded-[2rem] font-black text-[15px] 
+                    transition-all duration-300 ease-in-out
+                    ${isActive 
+                      ? 'text-[#004EA1] scale-[1.01]' 
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                    }
+                  `}
+                >
+                  {/* 활성화 시 배경 (하얀 카드 효과) */}
+                  {isActive && (
+                    <div className="absolute inset-0 bg-white rounded-[1.8rem] shadow-[0_8px_20px_-6px_rgba(0,0,0,0.1)] animate-in fade-in zoom-in-95 duration-200" />
+                  )}
+                  
+                  {/* 아이콘 및 라벨 */}
+                  <span className={`relative z-10 transition-colors ${isActive ? 'text-[#004EA1]' : 'text-slate-400'}`}>
+                    {tab.icon}
+                  </span>
+                  <span className="relative z-10 tracking-tight whitespace-nowrap">
+                    {tab.label}
+                  </span>
+
+                  {/* 활성화 표시 포인트 */}
+                  {isActive && (
+                    <span className="absolute bottom-2 w-1 h-1 bg-[#004EA1] rounded-full z-10" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* MARKET TAB CONTENT */}
