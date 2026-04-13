@@ -317,3 +317,106 @@ export const SENT_MAILS_DATA = [
     content: '최근 금융권 보안 가이드라인에 따른 타사 도입 성공 사례 및 아키텍처 상세 자료입니다...',
   }
 ];
+
+export const getDDay = (targetDate) => {
+  const diff = new Date(targetDate) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+// --- 2. 기존 고객 업셀링 데이터 (UpsellTab용) ---
+export const upsellData = [
+  {
+    id: 'U1',
+    company: '키움증권',
+    potential: 94,
+    currentSolution: 'Citrix VDI (On-premise)',
+    targetSolution: 'Citrix DaaS + Nutanix Hybrid Cloud',
+    renewalDate: '2026-08-15',
+    status: 'High Priority',
+    news: [
+      { date: '2026-04-01', title: '키움증권, 차세대 디지털 금융 시스템 전환 가속화', sentiment: 'Positive' },
+      { date: '2026-03-25', title: '금융권 망분리 규제 완화에 따른 재택근무 환경 재정비', sentiment: 'Neutral' }
+    ],
+    businessStrategy: '금융 보안 클라우드 고도화 및 비대면 업무 환경의 완전 자동화 추진 중',
+    contacts: [
+      { 
+        name: '김철수 팀장', 
+        dept: 'IT 인프라팀', 
+        email: 'cs.kim@kiwoom.com',
+        persona: '안정성 중시형',
+        trait: '보수적인 의사결정을 하나, 명확한 비용 절감 수치(TCO)와 보안 인증 데이터에 민감함. 기술적 디테일보다 운영 안정성을 우선시함.'
+      },
+      { 
+        name: '이영희 과장', 
+        dept: '디지털혁신단', 
+        email: 'yh.lee@kiwoom.com',
+        persona: '기술 트렌드 민감형',
+        trait: '최신 클라우드 기술 도입에 적극적. 성능 향상과 사용자 경험(UX) 개선을 통한 내부 만족도 제고에 관심이 많음. 구체적인 PoC 사례 요구 가능성 높음.'
+      }
+    ]
+  },
+  {
+    id: 'U2',
+    company: '사람인',
+    potential: 88,
+    currentSolution: 'Nubo VMI (기본형)',
+    targetSolution: 'Nubo VMI Enterprise + 망분리 고도화',
+    renewalDate: '2026-05-20',
+    status: 'Critical',
+    news: [
+      { date: '2026-04-05', title: '사람인, AI 매칭 서비스 강화를 위한 인프라 확장 투자', sentiment: 'Positive' }
+    ],
+    businessStrategy: '개발 인력의 원격 근무 보안 강화 및 대규모 데이터 처리를 위한 모바일 가상화 확장',
+    contacts: [
+      { 
+        name: '박지성 차장', 
+        dept: '보안운영팀', 
+        email: 'jspark@saramin.co.kr',
+        persona: '효율성 최우선형',
+        trait: '중복 투자를 극도로 싫어함. 기존 시스템과의 완벽한 호환성과 통합 관리 편의성을 강조해야 함. 실무진의 업무 리소스 감소를 핵심 소구점으로 활용할 것.'
+      }
+    ]
+  }
+];
+
+
+
+export const inboundLeads =[
+    {
+      id: 'L1',
+      company: '삼성SDS',
+      email: 'ict_strategy@samsung.com',
+      visitPath: ['제품소개', 'Nubo VMI', '기술 백서 다운로드'],
+      stayTime: '08:45',
+      interestScore: 95,
+      lastVisit: '2026-04-10',
+      status: 'HOT',
+      suggestedSolution: 'Nubo VMI (가상 모바일 인프라)',
+      reason: '보안 솔루션 페이지 5분 이상 체류 및 구축 사례 집중 조회',
+      contacts: [{ name: '삼성SDS 담당자', email: 'ict_strategy@samsung.com', dept: 'ICT전략팀' }],
+      behavior: [
+        { page: '/products/nubo-vmi', time: '04:12', action: '백서 다운로드', intent: 'High' },
+        { page: '/case-study/public', time: '03:10', action: '스크롤 80%', intent: 'Medium' },
+        { page: '/pricing', time: '01:23', action: '견적 문의 클릭', intent: 'High' }
+      ],
+      keywords: ['망분리', 'VMI', '보안성', 'Android 가상화']
+    },
+    {
+      id: 'L2',
+      company: '현대자동차',
+      email: 'infra_mgr@hyundai.com',
+      visitPath: ['메인', 'Citrix VDI', '도입 비용 계산기'],
+      stayTime: '03:20',
+      interestScore: 82,
+      lastVisit: '2026-04-09',
+      status: 'WARM',
+      suggestedSolution: 'Citrix DaaS (Cloud 가상화)',
+      reason: 'VDI 클라우드 전환 가이드 페이지 반복 방문',
+      contacts: [{ name: '현대차 인프라팀', email: 'infra_mgr@hyundai.com', dept: 'IT운영팀' }],
+      behavior: [
+        { page: '/solutions/citrix-vdi', time: '02:05', action: '단순 열람', intent: 'Medium' },
+        { page: '/calculator/vdi-cost', time: '01:15', action: '수치 입력', intent: 'High' }
+      ],
+      keywords: ['DaaS', 'Cloud Migration', 'VDI 비용절감']
+    }
+  ];
