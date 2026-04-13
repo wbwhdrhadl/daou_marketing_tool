@@ -1,68 +1,23 @@
 import React, { useState } from 'react';
+import MarketOpportunity from './MarketOpportunity';
+import UpsellingSection from './UpsellingSection';
+import InboundAnalysis from './InboundAnalysis';
 import MailManage from './MailManage';
-import { 
-  User, Plus, X, BarChart3, Users, Calendar, Search, 
-  Loader2, Terminal, MousePointerClick, Clock, Mail, Building2, ChevronRight,
-  Eye, Timer, Zap, Target, Sparkles, ArrowUpRight, MessageSquare, Briefcase,
-  TrendingUp, FileText // <-- 추가됨
-} from 'lucide-react';
-import { upsellData, getDDay, inboundLeads } from '../data'; 
-import ReportCard from './ReportCard';    
-import DetailModal from './DetailModal';    
+import DetailModal_opportunity from './DetailModal_opportunity';
+import DetailModal_upsell from './DetailModal_upsell';
 import ProposalModal from './ProposalModal'; 
+import DetailModal_inbound from './DetailModal_inbound'; 
+import { User, BarChart3, Users, MousePointerClick, Mail } from 'lucide-react';
 
 const Dashboard = () => {
-  // --- 1. 상태 관리 ---
   const [activeTab, setActiveTab] = useState('market'); 
-  const [tags, setTags] = useState([]);
-  const [inputValue, setInputValue] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
   const [proposalStep, setProposalStep] = useState(null);
   const [targetPartner, setTargetPartner] = useState('');
   const [emailContent, setEmailContent] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
-  
   const [startDate, setStartDate] = useState('2026-01-01'); 
   const [endDate, setEndDate] = useState('2026-12-31');
-
-  const [realReports, setRealReports] = useState([]); 
-  const [isLoading, setIsLoading] = useState(false);
-  const [debugLog, setDebugLog] = useState('시스템 준비 완료');
-
-
-  // --- 3. 로직 핸들러 ---
-  const handleSearch = async () => {
-    if (tags.length === 0) {
-      setDebugLog('❌ 에러: 키워드를 입력해주세요.');
-      return;
-    }
-    const searchKeyword = tags.join(',');
-    setIsLoading(true);
-    setDebugLog(`🔍 통합 분석 중: [${searchKeyword}] 관련 데이터 수집...`);
-    try {
-      const response = await fetch(`http://localhost:8000/api/search-all/${encodeURIComponent(searchKeyword)}`);
-      if (!response.ok) throw new Error(`서버 응답 에러 (${response.status})`);
-      const data = await response.json();
-      if (data.results) {
-        // AI가 분석한 파트너사 정보라고 가정 (Mock Data)
-        const fixedPartners = [
-          { name: '티맥스클라우드', deals: 15, color: '#004EA1', contacts: [{ name: '이다은 사원', email: 'ldaeundev@gmail.com', dept: '가상화사업팀' }] },
-          { name: '나무기술', deals: 10, color: '#006FFF', contacts: [{ name: '박용훈 대리', email: 'yh.park@namutech.co.kr', dept: '인프라팀' }] },
-        ];
-        // 결과 데이터에 토픽과 파트너사 정보를 강제로 매핑 (API에서 오지 않을 경우 대비)
-        setRealReports(data.results.map(report => ({ 
-          ...report, 
-          partners: fixedPartners,
-          keywords: report.keywords || tags // 검색 키워드를 토픽으로 우선 활용
-        })));
-        setDebugLog(`✅ 성공: 뉴스 ${data.news_count}건, 나라장터 ${data.bid_count}건 분석 완료`);
-      }
-    } catch (error) {
-      setDebugLog(`❌ 실패: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleContactSelect = (contact) => {
     setSelectedContact(contact);
@@ -71,35 +26,25 @@ const Dashboard = () => {
   };
 
   const generateAIContent = async (name, contact) => {
-    setDebugLog(`🤖 AI가 ${name} 맞춤형 제안서를 작성 중...`);
     setProposalStep('write');
     setEmailContent("AI가 제안서를 작성하고 있습니다...");
-
     try {
       const response = await fetch("http://localhost:8000/api/generate-proposal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: selectedReport?.title || "인바운드 대응",
-          summary: selectedReport?.reason || selectedReport?.summary,
+          title: selectedReport?.title || "영업 제안",
+          summary: selectedReport?.reason || selectedReport?.summary || selectedReport?.businessStrategy,
           partner_name: name,
           contact_name: contact?.name || "담당자",
-          solution_type: selectedReport?.suggestedSolution || "Nubo VMI",
+          solution_type: selectedReport?.targetSolution || "Nubo VMI",
           is_upsell: activeTab === 'upsell'
         }),
       });
       const data = await response.json();
       setEmailContent(data.content);
-      setDebugLog(`✅ 제안서 생성 완료!`);
     } catch (error) {
-      setEmailContent("제안서 생성 중 오류가 발생했습니다. 서버 연결을 확인하세요.");
-    }
-  };
-
-  const handleAddTag = () => {
-    if (inputValue.trim() && !tags.includes(inputValue.trim())) {
-      setTags([...tags, inputValue.trim()]);
-      setInputValue('');
+      setEmailContent("제안서 생성 중 오류가 발생했습니다.");
     }
   };
 
@@ -110,16 +55,13 @@ const Dashboard = () => {
     setSelectedContact(null); 
   };
 
-  const displayReports = realReports
-    .filter(report => {
-      const rDate = new Date(report.date);
-      return rDate >= new Date(startDate) && rDate <= new Date(endDate);
-    })
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const handleOpenProposal = (report) => {
+    setSelectedReport(report);
+    setProposalStep('select');
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans text-slate-900">
-      {/* HEADER */}
       <header className="max-w-7xl mx-auto flex items-center justify-between bg-white px-8 py-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
         <div className="flex items-center gap-3">
           <div className="bg-[#0095D8] text-white p-2 rounded-lg font-black text-xl tracking-tighter shadow-blue-100 shadow-lg">DAOU</div>
@@ -131,19 +73,13 @@ const Dashboard = () => {
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Administrator</p>
             <p className="text-sm font-black text-slate-700">이다은 님</p>
           </div>
-          <div className="relative">
-            <div className="bg-gradient-to-tr from-[#0095D8] to-[#004EA1] p-2.5 rounded-xl shadow-md cursor-pointer hover:scale-105 transition-transform">
-              <User size={20} className="text-white" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
+          <div className="bg-gradient-to-tr from-[#0095D8] to-[#004EA1] p-2.5 rounded-xl shadow-md cursor-pointer hover:scale-105 transition-transform">
+            <User size={20} className="text-white" />
           </div>
         </div>
       </header>
 
-      {/* MAIN CONTAINER */}
       <main className="max-w-7xl mx-auto">
-        {/* TABS NAVIGATION */}
-        {/* TABS NAVIGATION - Full Width & Balanced Design */}
         <div className="max-w-7xl mx-auto mb-10">
           <div className="flex p-1.5 bg-slate-200/50 backdrop-blur-md rounded-[2.5rem] shadow-inner border border-slate-200/50">
             {[
@@ -157,388 +93,76 @@ const Dashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); closeAllModals(); }}
-                  className={`
-                    relative flex-1 flex items-center justify-center gap-3 px-4 py-4 rounded-[2rem] font-black text-[15px] 
-                    transition-all duration-300 ease-in-out
-                    ${isActive 
-                      ? 'text-[#004EA1] scale-[1.01]' 
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
-                    }
-                  `}
+                  className={`relative flex-1 flex items-center justify-center gap-3 px-4 py-4 rounded-[2rem] font-black text-[15px] transition-all duration-300 ${isActive ? 'text-[#004EA1]' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  {/* 활성화 시 배경 (하얀 카드 효과) */}
-                  {isActive && (
-                    <div className="absolute inset-0 bg-white rounded-[1.8rem] shadow-[0_8px_20px_-6px_rgba(0,0,0,0.1)] animate-in fade-in zoom-in-95 duration-200" />
-                  )}
-                  
-                  {/* 아이콘 및 라벨 */}
-                  <span className={`relative z-10 transition-colors ${isActive ? 'text-[#004EA1]' : 'text-slate-400'}`}>
-                    {tab.icon}
-                  </span>
-                  <span className="relative z-10 tracking-tight whitespace-nowrap">
-                    {tab.label}
-                  </span>
-
-                  {/* 활성화 표시 포인트 */}
-                  {isActive && (
-                    <span className="absolute bottom-2 w-1 h-1 bg-[#004EA1] rounded-full z-10" />
-                  )}
+                  {isActive && <div className="absolute inset-0 bg-white rounded-[1.8rem] shadow-lg animate-in fade-in zoom-in-95 duration-200" />}
+                  <span className={`relative z-10 ${isActive ? 'text-[#004EA1]' : 'text-slate-400'}`}>{tab.icon}</span>
+                  <span className="relative z-10 tracking-tight whitespace-nowrap">{tab.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* MARKET TAB CONTENT */}
-        {activeTab === 'market' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-8 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
-                <div className="lg:col-span-6">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Market Keywords</label>
-                  <div className="flex flex-wrap items-center gap-2 border-2 border-slate-100 rounded-2xl p-3 bg-slate-50 focus-within:bg-white focus-within:border-[#0095D8] transition-all focus-within:shadow-lg focus-within:shadow-blue-50">
-                    {tags.map((tag) => (
-                      <span key={tag} className="flex items-center gap-1.5 bg-[#004EA1] px-3 py-1.5 rounded-xl text-[12px] font-bold text-white shadow-sm animate-in zoom-in duration-200">
-                        {tag} <button onClick={() => setTags(tags.filter(t => t !== tag))} className="hover:text-red-200 transition-colors"><X size={14} /></button>
-                      </span>
-                    ))}
-                    <input 
-                      value={inputValue} 
-                      onChange={(e) => setInputValue(e.target.value)} 
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTag()} 
-                      placeholder="분석할 키워드를 입력하세요..." 
-                      className="outline-none text-sm flex-1 bg-transparent min-w-[200px] ml-2 font-medium" 
-                    />
-                  </div>
-                </div>
-                <div className="lg:col-span-4">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Analysis Period</label>
-                  <div className="flex items-center gap-3 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3">
-                    <Calendar size={18} className="text-slate-400" />
-                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent text-sm font-bold text-slate-600 outline-none" />
-                    <span className="text-slate-300 font-light">~</span>
-                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent text-sm font-bold text-slate-600 outline-none" />
-                  </div>
-                </div>
-                <div className="lg:col-span-2">
-                  <button onClick={handleSearch} disabled={isLoading} className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#004EA1] text-white rounded-2xl font-black text-sm hover:bg-blue-800 shadow-lg shadow-blue-200 transition-all active:scale-95 disabled:opacity-70">
-                    {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />} 분석 실행
-                  </button>
-                </div>
-              </div>
-              <div className="mt-6 flex items-center gap-3 bg-slate-900 text-slate-300 px-5 py-3 rounded-xl font-mono text-xs overflow-hidden">
-                <Terminal size={14} className="text-[#0095D8]" /> 
-                <span className="text-[#0095D8] font-bold">LOG:</span> 
-                <span className="truncate">{debugLog}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {displayReports.length > 0 ? (
-                displayReports.map((report) => (
-                  <ReportCard key={report.id} report={report} onDetail={(r) => setSelectedReport(r)} onProposal={(r) => { setSelectedReport(r); setProposalStep('select'); }} />
-                ))
-              ) : (
-                <div className="col-span-full py-24 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4">
-                   <div className="p-4 bg-slate-50 rounded-full text-slate-300"><Search size={48} /></div>
-                   <p className="text-slate-400 font-bold text-lg">상단 키워드를 입력하고 시장 기회 분석을 시작하세요.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* --- UPSELL TAB CONTENT (대폭 강화된 부분) --- */}
-        {activeTab === 'upsell' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {upsellData.map((client) => {
-              const dDay = getDDay(client.renewalDate);
-              return (
-                <div key={client.id} className="group border border-slate-200 rounded-[2.5rem] p-1 bg-white hover:shadow-2xl hover:shadow-blue-100 transition-all relative overflow-hidden">
-                  <div className="p-8">
-                    {/* 상단 갱신 정보 */}
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${dDay < 100 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                            {dDay < 100 ? '갱신 임박' : '계약 유지'}
-                          </span>
-                          <span className="bg-blue-100 text-[#004EA1] px-3 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase">
-                            AI 매칭 {client.potential}%
-                          </span>
-                        </div>
-                        <h4 className="text-3xl font-black text-slate-800 tracking-tighter">{client.company}</h4>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-slate-400 font-black uppercase mb-1">계약 만료 D-Day</p>
-                        <p className={`text-2xl font-black ${dDay < 100 ? 'text-red-500' : 'text-slate-800'}`}>D-{dDay}</p>
-                        <p className="text-[11px] text-slate-400 font-bold">{client.renewalDate}</p>
-                      </div>
-                    </div>
-
-                    {/* 솔루션 정보 카드 */}
-                    <div className="flex justify-between items-center bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100 shadow-inner">
-                      <div className="flex-1">
-                        <p className="text-[10px] text-slate-400 font-black uppercase mb-1">현재 솔루션</p>
-                        <p className="text-sm font-bold text-slate-600">{client.currentSolution}</p>
-                      </div>
-                      <div className="px-6 flex flex-col items-center">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shadow-sm">
-                           <ArrowUpRight size={20} className="text-[#004EA1]" />
-                        </div>
-                      </div>
-                      <div className="flex-1 text-right">
-                        <p className="text-[10px] text-[#0095D8] font-black uppercase mb-1">추천 업셀링</p>
-                        <p className="text-sm font-bold text-[#004EA1]">{client.targetSolution}</p>
-                      </div>
-                    </div>
-
-                    {/* 뉴스 및 전략 요약 미리보기 */}
-                    <div className="space-y-4 mb-8">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 bg-blue-50 p-2 rounded-lg text-[#0095D8]"><TrendingUp size={16}/></div>
-                        <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">사업 방향성</p>
-                          <p className="text-sm font-medium text-slate-700 leading-relaxed truncate max-w-[400px]">{client.businessStrategy}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                        <button 
-                          onClick={() => setSelectedReport(client)} 
-                          className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:border-[#0095D8] hover:text-[#0095D8] transition-all flex items-center justify-center gap-2"
-                        >
-                          <FileText size={18} /> 기업 분석 리포트
-                        </button>
-                        <button 
-                          onClick={() => { setSelectedReport(client); setProposalStep('select'); }} 
-                          className="flex-1 py-4 bg-[#004EA1] text-white rounded-2xl font-black text-sm hover:bg-blue-800 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
-                        >
-                          <Sparkles size={18} /> 제안서 발송
-                        </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* INBOUND TAB CONTENT */}
-        {activeTab === 'inbound' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-gradient-to-r from-[#004EA1] to-[#0095D8] p-8 rounded-[2rem] text-white flex items-center justify-between shadow-xl shadow-blue-100">
-              <div className="flex items-center gap-6">
-                <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-md">
-                   <Target size={32} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-black text-2xl tracking-tight">실시간 인바운드 리드 분석</h3>
-                  <p className="text-blue-50 text-sm mt-1 font-medium opacity-90">잠재 고객의 웹사이트 행동 패턴을 AI가 분석하여 고가치 리드를 선별했습니다.</p>
-                </div>
-              </div>
-              <div className="hidden md:block text-right">
-                 <p className="text-xs font-black text-blue-200 uppercase tracking-widest">Update Today</p>
-                 <p className="text-lg font-bold">14 New Leads</p>
-              </div>
-            </div>
-
-            {inboundLeads.map((lead) => (
-              <div key={lead.id} className="group bg-white border border-slate-200 rounded-[2.5rem] p-10 hover:border-[#0095D8] hover:shadow-2xl transition-all duration-500 flex flex-col lg:flex-row gap-10 relative">
-                <div className="lg:w-1/4 lg:border-r lg:border-slate-100 lg:pr-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${lead.status === 'HOT' ? 'bg-orange-100 text-orange-600 shadow-sm shadow-orange-50' : 'bg-blue-100 text-[#004EA1]'}`}>
-                      {lead.status}
-                    </span>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                      <Clock size={14} /> {lead.stayTime}
-                    </div>
-                  </div>
-                  <h4 className="text-2xl font-black text-slate-800 mb-3 flex items-center gap-2 group-hover:text-[#004EA1] transition-colors">
-                    <Building2 size={24} className="text-slate-300 group-hover:text-[#0095D8]" /> {lead.company}
-                  </h4>
-                  <p className="text-sm text-slate-500 font-medium flex items-center gap-2">
-                    <Mail size={16} className="text-slate-300" /> {lead.email}
-                  </p>
-                </div>
-
-                <div className="lg:w-2/4">
-                  <div className="flex flex-wrap items-center gap-2.5 mb-8">
-                    {lead.visitPath.map((path, idx) => (
-                      <React.Fragment key={idx}>
-                        <span className="text-xs bg-slate-50 px-4 py-2.5 rounded-1.5xl border border-slate-100 font-bold text-slate-600 shadow-sm">{path}</span>
-                        {idx < lead.visitPath.length - 1 && <ChevronRight size={16} className="text-slate-200" />}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                  <div className="bg-[#F8FAFC] p-6 rounded-[1.5rem] border border-dashed border-slate-200 group-hover:bg-blue-50/50 group-hover:border-[#0095D8]/30 transition-all">
-                    <p className="text-sm text-slate-700 leading-relaxed font-medium tracking-tight">
-                      <span className="font-black text-[#0095D8] mr-2 inline-flex items-center gap-1"><Zap size={14} /> AI Insights:</span>
-                      {lead.reason}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="lg:w-1/4 flex flex-col justify-center gap-4">
-                  <button 
-                    onClick={() => setSelectedReport(lead)} 
-                    className="w-full py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:border-[#0095D8] hover:text-[#0095D8] hover:shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
-                  >
-                    <Eye size={18} /> 상세 행동 리포트
-                  </button>
-                  <button onClick={() => { setSelectedReport(lead); setProposalStep('select'); }} className="w-full py-4 bg-[#004EA1] text-white rounded-2xl font-black text-sm hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all active:scale-[0.97]">
-                    개인화 제안서 발송
-                  </button>
-                </div>
-              </div>
-            ))}
-</div>
+        <div className="min-h-[600px]">
+          {activeTab === 'market' && (
+            <MarketOpportunity 
+              onDetail={setSelectedReport} 
+              onProposal={handleOpenProposal}
+              startDate={startDate} setStartDate={setStartDate}
+              endDate={endDate} setEndDate={setEndDate}
+            />
           )}
-                  {activeTab === 'mailManage' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <MailManage />
-          </div>
-        )}
+          {activeTab === 'upsell' && <UpsellingSection onDetail={setSelectedReport} onProposal={handleOpenProposal} />}
+          {activeTab === 'inbound' && <InboundAnalysis onDetail={setSelectedReport} onProposal={handleOpenProposal} />}
+          {activeTab === 'mailManage' && <MailManage />}
+        </div>
       </main>
 
-      {/* --- 분석 리포트 상세 모달 (데이터 통합 대응형) --- */}
+      {/* --- 핵심 수정: 탭별 모달 분기 로직 --- */}
       {selectedReport && !proposalStep && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-4xl rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-            
-            {/* 1. 헤더: 회사명 또는 리포트명 */}
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <p className="text-[11px] font-black text-[#0095D8] uppercase tracking-[0.2em] mb-2">Detailed Analysis Report</p>
-                <h2 className="text-4xl font-black text-slate-800 tracking-tighter">
-                  {selectedReport.company || selectedReport.name || "시장 분석 리포트"}
-                </h2>
-                {selectedReport.title && <p className="text-slate-500 font-bold mt-2 text-lg">"{selectedReport.title}"</p>}
-              </div>
-              <button onClick={closeAllModals} className="p-4 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-red-500 shadow-sm border border-slate-100"><X size={24} /></button>
-            </div>
-            
-            <div className="p-10 overflow-y-auto flex-1 custom-scrollbar">
-              
-              {/* 2. 핵심 분석 요약 (통합 매핑) */}
-              <div className="mb-10 animate-in fade-in duration-500">
-                <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#004EA1]"><MessageSquare size={18} /></div>
-                  AI 통합 분석 결과
-                </h3>
-                <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-slate-700 leading-relaxed font-medium">
-                  {/* 데이터 타입에 따라 다른 필드 출력 */}
-                  {selectedReport.businessStrategy || selectedReport.summary || selectedReport.reason || "상세 분석 데이터가 존재하지 않습니다."}
-                </div>
-              </div>
+  <>
+    {/* 1. 시장 기회 발굴 탭 모달 */}
+    {activeTab === 'market' && (
+      <DetailModal_opportunity 
+        report={selectedReport} 
+        onClose={closeAllModals} 
+        onStartProposal={() => setProposalStep('select')} 
+      />
+    )}
 
-              {/* 3. [업셀링/인바운드 전용] 관련 뉴스 또는 키워드 */}
-              {selectedReport.news && (
-                <div className="mb-10">
-                  <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500"><FileText size={18} /></div>
-                    최근 관련 주요 뉴스
-                  </h3>
-                  <div className="space-y-3">
-                    {selectedReport.news.map((item, idx) => (
-                      <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl flex justify-between items-center">
-                        <span className="text-sm font-bold text-slate-700">{item.title}</span>
-                        <span className={`text-[10px] px-2 py-1 rounded font-black ${item.sentiment === 'Positive' ? 'bg-green-100 text-green-600' : 'bg-slate-100'}`}>
-                          {item.sentiment}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+    {/* 2. 기존 고객 Upselling 탭 모달 */}
+    {activeTab === 'upsell' && (
+      <DetailModal_upsell 
+        report={selectedReport} 
+        onClose={closeAllModals} 
+        onStartProposal={() => setProposalStep('select')} 
+      />
+    )}
 
-              {/* 4. 핵심 키워드/토픽 */}
-              <div className="mb-10">
-                <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center"><Zap size={18} className="text-yellow-500" /></div>
-                  주요 핵심 토픽
-                </h3>
-                <div className="flex flex-wrap gap-3">
-                  {(selectedReport.keywords || tags).map((kw, idx) => (
-                    <span key={idx} className="px-5 py-3 bg-white text-slate-700 text-xs font-black rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2">
-                      <span className="text-[#0095D8]">#</span> {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* 5. [업셀링 전용] 담당자 페르소나 분석 */}
-              {selectedReport.contacts && (
-                <div className="mb-10">
-                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600"><Users size={18} /></div>
-                    의사결정권자 분석
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedReport.contacts.map((c, idx) => (
-                      <div key={idx} className="p-6 border border-slate-100 bg-slate-50/50 rounded-2xl">
-                        <div className="flex justify-between items-start mb-2">
-                          <p className="font-black text-slate-800">{c.name} <span className="text-slate-400 text-xs ml-1">{c.dept}</span></p>
-                          <span className="text-[10px] bg-white px-2 py-1 rounded border border-[#0095D8]/20 text-[#004EA1] font-black">{c.persona}</span>
-                        </div>
-                        <p className="text-xs text-slate-500 leading-relaxed">{c.trait}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 6. [인바운드 전용] 행동 로그 (기존 코드 유지) */}
-              {activeTab === 'inbound' && selectedReport.behavior && (
-                <div className="mb-10">
-                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><Target size={18} className="text-[#004EA1]" /></div>
-                    사용자 세부 행동 로그
-                  </h3>
-                  <div className="space-y-4">
-                    {selectedReport.behavior.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100">
-                        <div className="flex items-center gap-5">
-                          <div className="w-10 h-10 bg-[#F8FAFC] rounded-xl flex items-center justify-center text-sm font-black text-slate-400 border border-slate-100">{idx + 1}</div>
-                          <div>
-                            <p className="text-[15px] font-bold text-slate-800">{item.page}</p>
-                            <p className="text-xs text-slate-400 font-bold mt-0.5">액션: <span className="text-[#0095D8]">{item.action}</span></p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-black text-slate-700 flex items-center gap-1 justify-end mb-1.5"><Clock size={12} className="text-slate-400" /> {item.time}</p>
-                          <span className={`text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider ${item.intent === 'High' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-slate-100 text-slate-500'}`}>{item.intent} Intent</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-10 bg-[#F8FAFC] border-t border-slate-100 flex gap-4">
-              <button onClick={() => { setProposalStep('select'); }} className="flex-1 py-5 bg-[#004EA1] text-white rounded-2xl font-black text-sm hover:bg-blue-800 shadow-xl shadow-blue-200 transition-all active:scale-[0.98]">
-                이 리포트를 기반으로 맞춤형 제안서 생성
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    {/* 3. 인바운드 리드 분석 탭 모달 */}
+    {activeTab === 'inbound' && (
+      <DetailModal_inbound 
+        report={selectedReport} 
+        onClose={closeAllModals} 
+        onStartProposal={() => setProposalStep('select')} 
+      />
+    )}
+  </>
+)}
       
-      {/* PROPOSAL MODAL COMPONENT */}
       <ProposalModal 
         step={proposalStep} 
         setStep={setProposalStep} 
         report={selectedReport}
-        onContactSelect={handleContactSelect}
+        onContactSelect={handleContactSelect} 
         targetPartner={targetPartner} 
-        setTargetPartner={setTargetPartner}
+        setTargetPartner={setTargetPartner} 
         generateAIContent={generateAIContent}
         emailContent={emailContent} 
         setEmailContent={setEmailContent}
         onClose={closeAllModals} 
-        onFinish={() => { alert('성공적으로 발송되었습니다!'); closeAllModals(); }}
+        onFinish={() => { alert('발송되었습니다!'); closeAllModals(); }}
       />
     </div>
   );
