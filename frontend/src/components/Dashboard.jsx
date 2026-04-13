@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import MailManage from './MailManage';
 import { 
   User, Plus, X, BarChart3, Users, Calendar, Search, 
   Loader2, Terminal, MousePointerClick, Clock, Mail, Building2, ChevronRight,
@@ -248,7 +249,9 @@ const Dashboard = () => {
           {[
             { id: 'market', icon: <BarChart3 size={18} />, label: '시장 기회 발굴' },
             { id: 'upsell', icon: <Users size={18} />, label: '기존 고객 Upselling' },
-            { id: 'inbound', icon: <MousePointerClick size={18} />, label: '인바운드 리드 분석' }
+            { id: 'inbound', icon: <MousePointerClick size={18} />, label: '인바운드 리드 분석' },
+            // 아래 'mailManage' 탭을 추가합니다.
+            { id: 'mailManage', icon: <Mail size={18} />, label: '제안메일 분석' } 
           ].map((tab) => (
             <button
               key={tab.id}
@@ -469,7 +472,12 @@ const Dashboard = () => {
               </div>
             ))}
           </div>
-        )}
+          )}
+                  {activeTab === 'mailManage' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <MailManage />
+            </div>
+          )}
       </main>
 
       {/* --- 분석 리포트 상세 모달 (데이터 통합 대응형) --- */}

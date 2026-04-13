@@ -265,3 +265,55 @@ export const companyDB = {
     ]
   }
 };
+
+export const MAIL_STATS = [
+  { label: '전체 발송', value: '24건', color: 'text-blue-600' },
+  { label: '평균 오픈율', value: '78%', color: 'text-emerald-600' },
+  { label: '콘텐츠 복사', value: '15회', color: 'text-orange-600' },
+  { label: '최고 관심도', value: '98점', color: 'text-purple-600' },
+];
+
+export const SENT_MAILS_DATA = [
+  {
+    id: 'M1',
+    recipient: '김철수 팀장',
+    company: '키움증권',
+    subject: 'Citrix DaaS + Nutanix 하이브리드 클라우드 전환 제안',
+    sentDate: '2026-04-10',
+    status: 'Read',
+    readCount: 5,
+    copyCount: 2,
+    shareCount: 1,
+    stayTime: '04:20',
+    interestScore: 92,
+    content: '키움증권의 차세대 디지털 금융 시스템 전환에 최적화된 가상화 인프라 구성안입니다...',
+  },
+  {
+    id: 'M2',
+    recipient: '박지성 차장',
+    company: '사람인',
+    subject: 'Nubo VMI Enterprise 고도화 및 보안 강화 제안',
+    sentDate: '2026-04-12',
+    status: 'Unread',
+    readCount: 0,
+    copyCount: 0,
+    shareCount: 0,
+    stayTime: '00:00',
+    interestScore: 15,
+    content: '사람인의 원격 근무 보안 강화를 위한 모바일 가상화 확장 솔루션 제안서입니다...',
+  },
+  {
+    id: 'M3',
+    recipient: '이영희 과장',
+    company: '키움증권',
+    subject: '금융권 망분리 규제 대응을 위한 DaaS 도입 사례집',
+    sentDate: '2026-04-08',
+    status: 'Read',
+    readCount: 12,
+    copyCount: 8,
+    shareCount: 3,
+    stayTime: '12:45',
+    interestScore: 98,
+    content: '최근 금융권 보안 가이드라인에 따른 타사 도입 성공 사례 및 아키텍처 상세 자료입니다...',
+  }
+];
