@@ -1,7 +1,7 @@
 # 기본 설정
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+from sqlalchemy.orm import Session
 # API 연결
 from api.google_crawler import fetch_google_news
 # 함수 이름을 새 이름으로 바꿔서 가져와야 합니다.
@@ -12,7 +12,7 @@ from api.generate_email import compose_proposal_email
 
 # 데이터베이스 연결
 from schemas import EmailRequest, ProposalRequest
-from database import engine
+from database import engine, SessionLocal, get_db
 import models
 from typing import Optional
 
@@ -27,37 +27,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# DB 테이블 생성 (필요 시)
+
+
 models.Base.metadata.create_all(bind=engine)
 
-
-# ✅ 네이버 뉴스 전용 엔드포인트
-@app.get("/api/news/naver/{keyword}")
-async def get_naver_news(keyword: str):
-    # 1. 고도화된 영업 기회 분석 함수 호출
-    # (내부에서 네이버 검색 -> 필터링 -> Gemini 분석 -> 데이터 구조화가 진행됩니다)
-    news_opportunities = fetch_business_opportunities(keyword)
-    
-    return {
-        "provider": "naver_gemini_ai",
-        "keyword": keyword,
-        "count": len(news_opportunities),
-        "results": news_opportunities  # 이제 분석된 JSON 리스트가 들어갑니다.
-    }
-
-
-@app.get("/api/v1/bids/koneps")
-async def get_koneps_bids(keyword: Optional[str] = None): # ✅ 키워드 없이 호출 가능
-    bids = fetch_koneps_bids(keyword)
-    
-    if isinstance(bids, dict) and "error" in bids:
-        raise HTTPException(status_code=500, detail=bids["error"])
-        
-    return {
-        "count": len(bids),
-        "keyword": keyword or "전체보기",
-        "results": bids
-    }
 
 
 # ✅ 구글 뉴스 전용 엔드포인트
@@ -103,31 +76,102 @@ async def generate_proposal(req: ProposalRequest):
 
 
 @app.get("/api/search-all/{keyword}")
-async def get_combined_opportunities(keyword: str):
-    """
-    네이버 뉴스(Gemini 분석)와 나라장터 공고(Gemini 분석)를 
-    하나의 리스트로 합쳐서 반환합니다.
-    """
+async def get_combined_opportunities(keyword: str, db: Session = Depends(get_db)):
     try:
-        # 1. 각 채널에서 분석된 데이터 가져오기
-        # (앞서 만든 fetch_koneps_opportunities 함수 이름이 fetch_koneps_bids라면 그걸 사용하세요)
         news_data = fetch_business_opportunities(keyword)
-        bid_data = fetch_koneps_opportunities(keyword) # 또는 fetch_koneps_bids(keyword)
+        bid_data = fetch_koneps_opportunities(keyword)
+        final_results = news_data + bid_data 
+
+        new_items_count = 0
+        for item in final_results:
+            existing_item = db.query(models.Opportunity).filter(models.Opportunity.id == item["id"]).first()
+            
+            if not existing_item:
+                # 💡 수정 포인트: fetch_... 함수는 'analysis' 키에 점수를 담아줍니다.
+                # item.get("scores")가 아니라 item.get("analysis")를 써야 합니다.
+                scores_dict = item.get("analysis", {}) 
+                
+                # 만약 fetch_... 함수가 리스트가 아닌 딕셔너리를 주기로 약속했다면 아래와 같이 접근
+                analysis_data = [
+                    scores_dict.get("security", 50),
+                    scores_dict.get("availability", 50),
+                    scores_dict.get("scalability", 50),
+                    scores_dict.get("profitability", 50)
+                ]
+
+                db_item = models.Opportunity(
+                    id=item["id"],
+                    source=item.get("source"),
+                    date=item.get("date"),
+                    company=item.get("company"),
+                    title=item.get("title"),
+                    summary=item.get("summary"),
+                    keywords=item.get("keywords"),
+                    suggested_solution=item.get("suggestedSolution"),
+                    partners=item.get("partners"),
+                    # score도 Gemini는 'scores' 안에 포함시켰을 수 있으니 체크
+                    score=item.get("score") if item.get("score") else 80, 
+                    level=item.get("level") if item.get("level") else "Mid",
+                    analysis=analysis_data,  # ✅ 드디어 데이터가 들어갑니다!
+                    link=item.get("link")
+                )
+                db.add(db_item)
+                new_items_count += 1
         
-        # 2. 데이터 통합
-        combined_results = news_data + bid_data
-        
-        # 3. 최신 날짜순으로 정렬 (프론트에서 보기 좋게!)
-        combined_results.sort(key=lambda x: x['date'], reverse=True)
-        
+        # 3. 변경사항 저장
+        db.commit()
+
         return {
             "keyword": keyword,
-            "total_count": len(combined_results),
-            "news_count": len(news_data),
-            "bid_count": len(bid_data),
-            "results": combined_results
+            "total_fetched": len(final_results),
+            "new_added": new_items_count,  # 새로 추가된 개수 확인용
+            "results": final_results
         }
-        
+
     except Exception as e:
-        print(f"통합 검색 에러: {e}")
-        raise HTTPException(status_code=500, detail="데이터를 불러오는 중 오류가 발생했습니다.")
+        db.rollback() 
+        print(f"🔥 DB 작업 중 에러 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"데이터 저장 중 오류: {str(e)}")
+
+
+@app.get("/api/opportunities")
+def get_opportunities(db: Session = Depends(get_db)):
+    results = db.query(models.Opportunity).order_by(models.Opportunity.date.desc()).all()
+    
+    formatted_results = []
+    for item in results:
+        # 1. DB의 analysis(배열/문자열)를 파싱하여 객체로 변환
+        raw_analysis = item.analysis
+        
+        # 문자열로 들어온 경우 JSON 파싱
+        if isinstance(raw_analysis, str):
+            try:
+                raw_analysis = json.loads(raw_analysis)
+            except:
+                raw_analysis = []
+
+            # 2. 배열 데이터를 프론트가 쓰기 편한 객체 형태로 정형화
+        if isinstance(raw_analysis, list) and len(raw_analysis) >= 4:
+            analysis_obj = {
+                "security": raw_analysis[0],      # 보안성
+                "availability": raw_analysis[1],  # 가용성
+                "scalability": raw_analysis[2],   # 확장성 (DetailModal용)
+                "profitability": raw_analysis[3], # 수익성 (ReportCard용)
+            }
+        else:
+            analysis_obj = {"security": 50, "availability": 50, "scalability": 50, "profitability": 50}
+        formatted_results.append({
+            "id": item.id,
+            "date": item.date.strftime('%Y-%m-%d') if item.date else None,
+            "source": item.source,
+            "company": item.company,
+            "title": item.title,
+            "summary": item.summary,
+            "keywords": item.keywords,
+            "score": item.score,    # 전체 매칭 점수
+            "level": item.level,
+            "analysis": analysis_obj, # ⭐ 'scores' 대신 'analysis'로 통일
+            "link": item.link
+        })
+    
+    return {"results": formatted_results}

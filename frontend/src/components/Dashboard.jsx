@@ -16,8 +16,8 @@ const Dashboard = () => {
   const [targetPartner, setTargetPartner] = useState('');
   const [emailContent, setEmailContent] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
-  const [startDate, setStartDate] = useState('2026-01-01'); 
-  const [endDate, setEndDate] = useState('2026-12-31');
+  const [startDate, setStartDate] = useState(''); // '2026-01-01' -> ''
+  const [endDate, setEndDate] = useState('');     // '2026-12-31' -> ''
 
   const handleContactSelect = (contact) => {
     setSelectedContact(contact);

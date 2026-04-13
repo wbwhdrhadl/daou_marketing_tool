@@ -113,23 +113,39 @@ def fetch_business_opportunities(keywords):
 
     combined_text = "\n\n".join(descriptions_to_summarize)
     
+    # 수정된 프롬프트: 요청하신 출력 형식을 강제함
     prompt = f"""
     너는 다우데이터의 IT 솔루션 B2B 영업 전략가야. 
-    아래 뉴스 리스트를 분석해서 가상화, 클라우드 등 IT 솔루션 도입 기회가 있는 항목만 추출해.
-    비슷한 내용의 기사가 여러 개 있다면 가장 정보가 풍부한 것 하나만 선택해.
+    아래 뉴스 리스트를 분석해서 가상화, 클라우드, 망분리 등 IT 솔루션 도입 기회가 있는 항목만 추출해.
 
-    반드시 아래의 JSON 배열 형식으로만 응답해. 다른 설명은 하지 마.
+    반드시 아래의 JSON 배열 형식으로만 응답해. 
+    'suggestedSolution'은 다우데이터가 취급하는 주요 솔루션(Nutanix, Citrix, VMware, Dell 등) 중 적합한 것을 추천하고,
+    'partners'는 해당 솔루션 역량이 있는 가상의 파트너사 정보를 창의적으로 구성해.
+    'scores'는 보안성, 가용성, 확장성, 수익성을 0~100 사이 숫자로 평가해.
 
     [응답 형식]
     [
       {{
-        "original_id": 기사ID번호(숫자),
+        "original_id": 기사ID번호,
         "company": "기업명",
-        "score": 0~100,
-        "level": "High/Medium/Low",
-        "keywords": ["키워드1", "2"],
-        "summary": "영업 기회 요약(2문장)",
-        "analysis": [기술타당성, 긴급도, 예산규모, 경쟁강도]
+        "title": "뉴스 제목 요약",
+        "summary": "영업 기회 요약 및 기술 요구사항 (2문장)",
+        "keywords": ["키워드1", "키워드2"],
+        "suggestedSolution": "추천 솔루션명",
+        "partners": [
+          {{ 
+            "name": "파트너사명", 
+            "deals": 10, 
+            "color": "#006FFF", 
+            "contacts": [{{ "name": "담당자", "email": "이메일", "dept": "부서" }}] 
+          }}
+        ],
+        "scores": {{
+          "security": 80,
+          "availability": 85,
+          "scalability": 75,
+          "profitability": 70
+        }}
       }}
     ]
 
@@ -141,12 +157,9 @@ def fetch_business_opportunities(keywords):
         ai_response = model.generate_content(prompt)
         ai_text = ai_response.text
         
-        # JSON 블록 추출
-        json_match = re.search(r'\[\s*{.*}\s*\]', ai_text, re.DOTALL)
-        if json_match:
-            ai_data = json.loads(json_match.group(0))
-        else:
-            ai_data = json.loads(ai_text.strip().replace('```json', '').replace('```', ''))
+        # JSON 추출 로직 (Markdown 코드 블록 제거)
+        ai_text_cleaned = re.sub(r'```json|```', '', ai_text).strip()
+        ai_data = json.loads(ai_text_cleaned)
 
         final_results = []
         for item in ai_data:
@@ -156,30 +169,43 @@ def fetch_business_opportunities(keywords):
                 
                 res = raw_news_list[idx]
                 
-                # 날짜 포맷 정리
+                # 1. 개별 점수 가져오기 (Gemini가 생성한 scores 객체)
+                ai_scores = item.get("scores", {
+                    "security": 50, "availability": 50, "scalability": 50, "profitability": 50
+                })
+
+                # 2. ✅ 종합 점수(score) 계산 로직 추가 
+                # (각 항목의 평균을 내어 프론트엔드 메인에 표시될 0~100점 사이의 점수 생성)
+                total_avg_score = int(sum(ai_scores.values()) / len(ai_scores))
+
+                # 3. 날짜 포맷 정리
                 try:
                     dt = datetime.strptime(res['pubDate'], '%a, %d %b %Y %H:%M:%S +0900')
                     formatted_date = dt.strftime('%Y-%m-%d')
                 except:
                     formatted_date = datetime.now().strftime('%Y-%m-%d')
 
+                # 4. 최종 결과 구성
                 final_results.append({
                     "id": res["unique_id"],
-                    "source": res["source"],
                     "date": formatted_date,
+                    "source": res.get("source", "Naver News"), # 소스 추가
                     "company": item.get("company", "알 수 없음"),
-                    "title": res["title"],
-                    "score": item.get("score", 50),
-                    "level": item.get("level", "Medium"),
-                    "link": res["link"],
-                    "keywords": item.get("keywords", []),
+                    "title": item.get("title", res["title"]),
                     "summary": item.get("summary", ""),
-                    "analysis": item.get("analysis", [50, 50, 50, 50])
+                    "keywords": item.get("keywords", []),
+                    "suggestedSolution": item.get("suggestedSolution", "TBD"),
+                    "partners": item.get("partners", []),
+                    
+                    # ✅ 프론트엔드 ReportCard.jsx 와 DetailModal의 기대 구조에 맞춤
+                    "score": total_avg_score,  # 종합 점수 (Card 하단에 크게 표시될 값)
+                    "level": "High" if total_avg_score >= 80 else "Mid", # 점수에 따른 우선순위
+                    "analysis": ai_scores # 세부 항목 점수 (그래프용)
                 })
             except Exception as e:
+                print(f"⚠️ 결과 매핑 중 에러: {e}")
                 continue
 
-        print(f"✅ 최종 결과: {len(final_results)}건 추출 성공")
         return final_results
 
     except Exception as e:

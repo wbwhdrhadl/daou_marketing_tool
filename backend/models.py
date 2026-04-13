@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Date, Text
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -17,3 +17,20 @@ class Contact(Base):
     email = Column(String)
     partner_id = Column(Integer, ForeignKey("partners.id"))
     owner = relationship("Partner", back_populates="contacts")
+
+class Opportunity(Base):
+    __tablename__ = "opportunities"
+
+    id = Column(String, primary_key=True, index=True) # unique_id
+    source = Column(String)     # Naver News 또는 나라장터
+    date = Column(Date)
+    company = Column(String)
+    title = Column(String)
+    summary = Column(Text)
+    keywords = Column(JSON)     # 리스트 저장용
+    suggested_solution = Column(String)
+    partners = Column(JSON)     # 객체 리스트 저장용
+    score = Column(Integer)
+    level = Column(String)
+    analysis = Column(JSON)     # [80, 70, 60, 50] 배열 저장용
+    link = Column(String)

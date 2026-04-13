@@ -4,15 +4,16 @@ import { X, BarChart3, TrendingUp, Mail, Target, Shield, Zap, Info } from 'lucid
 const DetailModal_opportunity = ({ report, onClose, onStartProposal }) => {
   if (!report) return null;
 
-  // 심층 분석을 위한 가상 데이터 (데이터가 없을 경우 대비)
+  // 💡 수정 포인트: report.analysis에 있는 실제 데이터를 우선적으로 할당합니다.
   const analysisData = {
-    potential: report.potential || 92,
-    suitability: report.suitability || 85,
-    marketTrend: report.marketTrend || 78,
-    strengths: report.strengths || ["기존 VDI 인프라 호환성", "국내 보안 가이드라인 준수", "운영 비용 30% 절감"],
-    riskFactor: report.riskFactor || "초기 구축 비용에 대한 고객사 예산 확보 필요"
+    // 백엔드에서 정규화해서 보낸 analysis 객체 값을 그대로 사용
+    potential: report.analysis?.security ?? 50,      // 보안성 -> 성공 가능성
+    suitability: report.analysis?.availability ?? 50, // 가용성 -> 적합도
+    marketTrend: report.analysis?.scalability ?? 50,  // 확장성 -> 시장 성장성
+    
+    strengths: report.strengths || ["기존 인프라 호환성", "보안 가이드 준수", "비용 절감"],
+    riskFactor: report.riskFactor || "예산 확보 필요"
   };
-
   const partners = report.partners || [
     { name: "나무기술", deals: 12, color: "#004EA1" },
     { name: "그루텍", deals: 8, color: "#0095D8" },
