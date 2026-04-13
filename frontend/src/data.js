@@ -315,6 +315,20 @@ export const SENT_MAILS_DATA = [
     stayTime: '12:45',
     interestScore: 98,
     content: '최근 금융권 보안 가이드라인에 따른 타사 도입 성공 사례 및 아키텍처 상세 자료입니다...',
+  },
+  {
+    id: 'M4',
+    recipient: '이영희 과장',
+    company: '키움증권',
+    subject: '금융권 망분리 규제 대응을 위한 DaaS 도입 사례집',
+    sentDate: '2026-04-08',
+    status: 'Read',
+    readCount: 12,
+    copyCount: 8,
+    shareCount: 3,
+    stayTime: '12:45',
+    interestScore: 98,
+    content: '최근 금융권 보안 가이드라인에 따른 타사 도입 성공 사례 및 아키텍처 상세 자료입니다...',
   }
 ];
 
@@ -420,3 +434,66 @@ export const inboundLeads =[
       keywords: ['DaaS', 'Cloud Migration', 'VDI 비용절감']
     }
   ];
+
+
+  export const MOCK_MARKET_REPORTS = [
+  {
+    id: 'demo-1',
+    date: '2026-04-10',
+    company: '한국가스공사(KOGAS)',
+    title: '차세대 업무망 가상화(VDI) 인프라 고도화 사업 공고',
+    summary: '업무 연속성 확보를 위한 노후 VDI 교체 및 보안 가상화 인프라 통합 구축 사업입니다. 약 50억 규모의 예산이 책정되었으며, 외산 솔루션(Citrix) 대비 국산 기술 적용 시 가산점이 부여됩니다.',
+    keywords: ['가상화', 'VDI', '공공기관', '망분리'],
+    suggestedSolution: 'Nubo VMI + Citrix DaaS',
+    partners: [
+      { name: '티맥스클라우드', deals: 15, color: '#004EA1', contacts: [{ name: '김철수 팀장', email: 'cs.kim@tmax.co.kr', dept: '전략기획팀' }] },
+      { name: '나무기술', deals: 8, color: '#006FFF', contacts: [{ name: '박용훈 대리', email: 'yh.park@namutech.co.kr', dept: '솔루션본부' }] }
+    ],
+    behavior: [
+      { page: 'Nubo VMI 상세페이지', action: '제안서 다운로드', time: '10분 20초', intent: 'High' },
+      { page: '도입 사례집', action: '금융권 사례 클릭', time: '5분 45초', intent: 'Medium' }
+    ],
+    scores: {
+      security: 85,
+      availability: 90,
+      scalability: 70,
+      profitability: 65
+    }
+  },
+  {
+    id: 'demo-2',
+    date: '2026-04-12',
+    company: '한화시스템',
+    title: '방산 보안 특수망 전용 모바일 가상화(VMI) 도입 검토',
+    summary: '망분리 환경 내 모바일 단말기 활용을 위한 보안 가상 인프라(VMI) 도입 초기 검토 단계입니다. 국방/보안 표준 준수 여부가 핵심이며, 다우데이타의 기존 보안 레퍼런스 조회가 빈번합니다.',
+    keywords: ['모바일가상화', '보안특수망', '방산', 'VMI'],
+    suggestedSolution: 'Nubo VMI Enterprise',
+    partners: [
+      { name: '그루텍', deals: 12, color: '#004EA1', contacts: [{ name: '이민수 본부장', email: 'ms.lee@grutech.com', dept: '기술영업팀' }] }
+    ],
+    scores: {
+      security: 85,
+      availability: 90,
+      scalability: 70,
+      profitability: 65
+    }
+  },
+  {
+    id: 'demo-3',
+    date: '2026-04-08',
+    company: '키움증권',
+    title: '금융권 망분리 규제 완화 대응 하이브리드 클라우드 전환',
+    summary: '최근 금융보안 규제 완화에 따른 내부망-클라우드 간 데이터 연동 보안 솔루션 수요가 급증하고 있습니다. 기존 Citrix 환경과의 유연한 통합이 필수 요건입니다.',
+    keywords: ['금융망분리', '하이브리드클라우드', '클라우드전환'],
+    suggestedSolution: 'Nutanix Hybrid Cloud',
+    partners: [
+      { name: '나무기술', deals: 20, color: '#006FFF', contacts: [{ name: '최지우 차장', email: 'jw.choi@namutech.co.kr', dept: '금융사업부' }] }
+    ],
+    scores: {
+      security: 85,
+      availability: 90,
+      scalability: 70,
+      profitability: 65
+    }
+  }
+];

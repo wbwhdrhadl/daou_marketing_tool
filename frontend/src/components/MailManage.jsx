@@ -79,7 +79,7 @@ const MailManage = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <DetailStatCard icon={<Eye size={16}/>} label="조회 횟수" value={`${selectedMail.readCount}회`} color="blue" />
                   <DetailStatCard icon={<Copy size={16}/>} label="텍스트 복사" value={`${selectedMail.copyCount}회`} color="orange" />
-                  <DetailStatCard icon={<Clock size={16}/>} label="평균 체류" value={selectedMail.stayTime} color="purple" />
+                  <DetailStatCard icon={<Clock size={16}/>} label="총 체류 시간" value={selectedMail.stayTime} color="purple" />
                   <DetailStatCard icon={<Share2 size={16}/>} label="공유/전달" value={`${selectedMail.shareCount}회`} color="emerald" />
                 </div>
 
