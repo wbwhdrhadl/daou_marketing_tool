@@ -208,3 +208,14 @@ def get_opportunities(db: Session = Depends(get_db)):
         })
     
     return {"results": formatted_results}
+
+
+
+@app.delete("/api/sent-mails/{mail_id}")
+async def delete_sent_mail(mail_id: int, db: Session = Depends(get_db)):
+    mail = db.query(models.SentMail).filter(models.SentMail.id == mail_id).first()
+    if not mail:
+        raise HTTPException(status_code=404, detail="Mail not found")
+    db.delete(mail)
+    db.commit()
+    return {"message": "Success"}
