@@ -1,5 +1,5 @@
 # 기본 설정
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 # API 연결
@@ -17,7 +17,13 @@ import models
 from typing import Optional
 from datetime import datetime
 import json
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 app = FastAPI()
+
+
+NGROK_HEADERS = {"ngrok-skip-browser-warning": "69420"}
+
 
 # CORS 설정
 app.add_middleware(
@@ -71,9 +77,9 @@ async def generate_proposal(req: ProposalRequest, db: Session = Depends(get_db))
         # 1. AI 메일 내용 생성
         email_content = compose_proposal_email(req.dict())
         
-        # 2. DB 저장
+        # 2. DB 저장 (먼저 저장해서 ID를 생성합니다)
         new_mail = models.SentMail(
-            recipient=req.email, # 프론트에서 넘어온 ldaeundev@gmail.com 등
+            recipient=req.email,
             company=req.partner_name,
             subject=f"[{req.partner_name}] 솔루션 제안서",
             content=email_content,
@@ -81,21 +87,22 @@ async def generate_proposal(req: ProposalRequest, db: Session = Depends(get_db))
             status="Unread"
         )
         db.add(new_mail)
-        db.commit()
-
-        # 3. 🔥 [핵심 추가] 실제 구글 SMTP를 이용해 메일 발송
-        # 다은님이 만드신 함수를 여기서 호출합니다.
+        db.flush() # ✅ commit 전 ID를 미리 할당받기 위해 flush 사용
+        
+        # 3. 실제 메일 발송 (할당받은 new_mail.id를 넘겨줍니다)
         email_result = send_proposal_email(
             receiver_email=req.email,
             subject=f"[{req.partner_name}] 솔루션 제안서",
-            content=email_content
+            content=email_content,
+            mail_id=str(new_mail.id) # ✅ DB ID를 추적 ID로 사용!
         )
+
+        db.commit() # 최종 저장
 
         return {
             "content": email_content,
-            "email_status": email_result["status"] # 발송 성공 여부 반환
+            "email_status": email_result["status"]
         }
-        
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -219,3 +226,41 @@ async def delete_sent_mail(mail_id: int, db: Session = Depends(get_db)):
     db.delete(mail)
     db.commit()
     return {"message": "Success"}
+
+
+
+
+@app.get("/api/v1/track/click/{mail_id}")
+async def track_click(mail_id: str):
+    print(f"\n" + "🚀"*15)
+    print(f"🚀 [클릭 포착] 사용자가 제안서 버튼을 눌렀습니다!")
+    print(f"📩 메일 ID: {mail_id}")
+    print(f"⏰ 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("🚀"*15 + "\n")
+    
+    # 클릭하면 실제 다우데이타 홈페이지나 제안서 페이지로 보내줍니다.
+    return RedirectResponse(url="https://www.daoudata.co.kr", headers=NGROK_HEADERS)
+
+class DurationData(BaseModel):
+    mail_id: str
+    duration_seconds: int
+
+# 1. 체류 시간 저장 API
+@app.post("/api/v1/track/duration")
+async def track_duration(data: DurationData):
+    print(f"\n⏳ [체류 시간] 메일 ID {data.mail_id}번 고객이")
+    print(f"⏰ 약 {data.duration_seconds}초 동안 제안서를 정독했습니다.")
+    return {"status": "success"}
+
+# 2. 공유/접속 정보 확인 API (페이지 진입 시 호출)
+@app.get("/api/v1/track/access/{mail_id}")
+async def track_access(mail_id: str, request: Request):
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent")
+    
+    print(f"\n🌐 [접속 감지] 메일 ID: {mail_id}")
+    print(f"📍 IP 주소: {client_ip}")
+    print(f"📱 기기 정보: {user_agent[:50]}...")
+    
+    # 💡 꿀팁: 여기서 이전 IP와 다르면 "공유됨"이라고 판단하는 로직을 넣으면 됩니다.
+    return {"status": "success", "ip": client_ip}
