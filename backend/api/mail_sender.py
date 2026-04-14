@@ -25,26 +25,47 @@ def send_proposal_email(receiver_email: str, subject: str, content: str, mail_id
         msg['To'] = receiver_email
         msg['Subject'] = subject
 
-        # 2. HTML 본문 구성
         html_content = f"""
         <html>
-            <body style="margin:0; padding:20px; font-family: 'Malgun Gothic', sans-serif;">
-                <div style="max-width: 600px; background: white;">
-                    <img src="{ngrok_url}/api/v1/track/open/{mail_id}" width="150" alt="DaouData Logo" style="display:block; margin-bottom:20px;">
+            <body style="margin:0; padding:20px; font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f9;">
+                <div style="max-width: 550px; margin: auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    <div style="background-color: #004EA1; padding: 25px; text-align: center;">
+                        <h2 style="color: white; margin: 0; font-size: 20px;">다우데이타 가상화 솔루션 제안서</h2>
+                    </div>
                     
-                    <div style="line-height: 1.6; color: #333; font-size: 15px;">
-                        {content.replace('\n', '<br>')}
-                    </div>
+                    <div style="padding: 30px;">
+                        <div style="line-height: 1.8; color: #444; font-size: 15px; margin-bottom: 30px;">
+                            {content.replace('\n', '<br>')}
+                        </div>
 
-                    <div style="margin-top: 30px; text-align: center;">
-                        <a href="{ngrok_url}/api/v1/track/click/{mail_id}" 
-                           style="background-color: #0095D8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-                           제안 솔루션 상세 보기
+                        <p style="font-weight: bold; color: #333; margin-bottom: 15px; border-left: 4px solid #004EA1; padding-left: 10px;">상세 솔루션 확인하기</p>
+                        
+                        <a href="{ngrok_url}/api/v1/track/click/{mail_id}/citrix" 
+                        style="display: block; background: #fff; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px;">
+                        Citrix VDI 솔루션 상세보기
                         </a>
-                    </div>
 
-                    <hr style="margin-top:40px; border:0; border-top:1px solid #eee;">
-                    <p style="font-size: 12px; color: #888;">본 메일은 다우데이타 가상화 사업팀에서 발송되었습니다.</p>
+                        <a href="{ngrok_url}/api/v1/track/click/{mail_id}/netscaler" 
+                        style="display: block; background: #fff; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px;">
+                        NetScaler(ADC) 솔루션 상세보기
+                        </a>
+
+                        <a href="{ngrok_url}/api/v1/track/click/{mail_id}/nubo" 
+                        style="display: block; background: #fff; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 20px;">
+                        Nubo(VMI) 솔루션 상세보기
+                        </a>
+
+                        <div style="text-align: center; margin-top: 25px;">
+                            <a href="{ngrok_url}/api/v1/track/click/{mail_id}/daoudata" 
+                            style="color: #888; font-size: 13px; text-decoration: underline;">
+                            다우데이타 공식 홈페이지 방문
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div style="background: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #aaa;">
+                        본 메일은 다우데이타 가상화 사업팀에서 발송된 보안 제안서입니다.
+                    </div>
                 </div>
             </body>
         </html>

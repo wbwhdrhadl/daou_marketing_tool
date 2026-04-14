@@ -264,3 +264,48 @@ async def track_access(mail_id: str, request: Request):
     
     # 💡 꿀팁: 여기서 이전 IP와 다르면 "공유됨"이라고 판단하는 로직을 넣으면 됩니다.
     return {"status": "success", "ip": client_ip}
+
+
+@app.get("/api/v1/track/open/{mail_id}")
+async def track_open(mail_id: str):
+    # 1. 터미널에 로그 남기기
+    print(f"📧 [메일 오픈 로그] 고객 ID: {mail_id}님이 방금 메일을 열었습니다!")
+
+    # 2. 실제 로고 이미지 파일 경로 (프로젝트 폴더 기준)
+    # 이미지 파일이 backend/images/daou_logo.png 에 있다고 가정합니다.
+    image_path = os.path.join("images", "daou_logo.jpg") 
+
+    # 3. 이미지 파일이 있으면 보내주고, 없으면 기존처럼 1픽셀 투명 이미지를 보냅니다.
+    if os.path.exists(image_path):
+        return FileResponse(image_path)
+    else:
+        # 파일이 없을 경우를 대비한 최소한의 방어 코드
+        pixel_data = b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b'
+        return Response(content=pixel_data, media_type="image/gif")
+
+
+@app.get("/api/v1/track/click/{mail_id}/{target}")
+async def track_click(mail_id: str, target: str):
+    # 1. 제품별 맞춤 로그 메시지 설정
+    product_names = {
+        "citrix": "Citrix (가상화/VDI)",
+        "netscaler": "NetScaler (ADC/L4 스위치)",
+        "nubo": "Nubo (VMI/모바일 가상화)",
+        "daoudata": "다우데이타 공식 홈페이지"
+    }
+    
+    friendly_name = product_names.get(target.lower(), target)
+
+    # 2. 터미널 로그 출력
+    print(f"\n📢 [클릭 이벤트 발생]")
+    print(f"👤 고객 ID : {mail_id}")
+    print(f"🎯 클릭 대상 : {friendly_name}")
+
+    # 3. 이동 경로 설정
+    if target == "daoudata":
+        redirect_url = "https://www.daoudata.co.kr/"
+    else:
+        # 리액트 페이지로 제품 정보를 넘겨줍니다.
+        redirect_url = f"http://localhost:5173/view/{mail_id}?product={target}"
+    
+    return RedirectResponse(url=redirect_url)
