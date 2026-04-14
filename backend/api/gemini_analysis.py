@@ -10,7 +10,7 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # ✅ 수정 포인트 1: genai.Model -> genai.GenerativeModel
 # 모델명은 현재 가장 안정적인 "gemini-1.5-flash"를 추천합니다.
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 def analyze_customer_interest(clicks: dict):
     """
