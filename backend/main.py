@@ -15,7 +15,8 @@ from schemas import EmailRequest, ProposalRequest
 from database import engine, SessionLocal, get_db
 import models
 from typing import Optional
-
+from datetime import datetime
+import json
 app = FastAPI()
 
 # CORS 설정
@@ -65,14 +66,46 @@ async def email_endpoint(request: EmailRequest):
 
 
 @app.post("/api/generate-proposal")
-async def generate_proposal(req: ProposalRequest):
+async def generate_proposal(req: ProposalRequest, db: Session = Depends(get_db)):
     try:
-        # ✅ 서비스 로직 함수 호출
+        # 1. AI 메일 내용 생성
         email_content = compose_proposal_email(req.dict())
-        return {"content": email_content}
+        
+        # 2. DB 저장
+        new_mail = models.SentMail(
+            recipient=req.email, # 프론트에서 넘어온 ldaeundev@gmail.com 등
+            company=req.partner_name,
+            subject=f"[{req.partner_name}] 솔루션 제안서",
+            content=email_content,
+            sentDate=datetime.now().strftime('%Y-%m-%d'),
+            status="Unread"
+        )
+        db.add(new_mail)
+        db.commit()
+
+        # 3. 🔥 [핵심 추가] 실제 구글 SMTP를 이용해 메일 발송
+        # 다은님이 만드신 함수를 여기서 호출합니다.
+        email_result = send_proposal_email(
+            receiver_email=req.email,
+            subject=f"[{req.partner_name}] 솔루션 제안서",
+            content=email_content
+        )
+
+        return {
+            "content": email_content,
+            "email_status": email_result["status"] # 발송 성공 여부 반환
+        }
+        
     except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail="제안서 생성 중 서버 오류 발생")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 2. 메일 리스트 조회
+@app.get("/api/sent-mails")
+async def get_sent_mails(db: Session = Depends(get_db)):
+    # ✅ 여기서 SentMail 앞에 models. 를 꼭 붙여주세요!
+    mails = db.query(models.SentMail).order_by(models.SentMail.id.desc()).all()
+    return mails
 
 
 @app.get("/api/search-all/{keyword}")

@@ -19,6 +19,7 @@ class ProposalRequest(BaseModel):
     summary: str
     partner_name: str
     contact_name: str
+    email: str
     solution_type: str
     is_upsell: bool
     current_solution: str = ""

@@ -30,17 +30,18 @@ const Dashboard = () => {
     setEmailContent("AI가 제안서를 작성하고 있습니다...");
     try {
       const response = await fetch("http://localhost:8000/api/generate-proposal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: selectedReport?.title || "영업 제안",
-          summary: selectedReport?.reason || selectedReport?.summary || selectedReport?.businessStrategy,
-          partner_name: name,
-          contact_name: contact?.name || "담당자",
-          solution_type: selectedReport?.targetSolution || "Nubo VMI",
-          is_upsell: activeTab === 'upsell'
-        }),
-      });
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: selectedReport?.title || "영업 제안",
+            summary: selectedReport?.reason || selectedReport?.summary,
+            partner_name: name,
+            contact_name: contact?.name || "담당자",
+            email: contact?.email, // 👈 [중요] 실제 담당자 이메일 추가!
+            solution_type: selectedReport?.targetSolution || "Nubo VMI",
+            is_upsell: activeTab === 'upsell'
+          }),
+        });
       const data = await response.json();
       setEmailContent(data.content);
     } catch (error) {

@@ -34,3 +34,19 @@ class Opportunity(Base):
     level = Column(String)
     analysis = Column(JSON)     # [80, 70, 60, 50] 배열 저장용
     link = Column(String)
+
+class SentMail(Base):
+    __tablename__ = "sent_mails"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient = Column(String)
+    company = Column(String)
+    subject = Column(String)
+    content = Column(Text)
+    sentDate = Column(String)
+    status = Column(String, default="Unread")
+    interestScore = Column(Integer, default=70)
+    readCount = Column(Integer, default=0)
+    copyCount = Column(Integer, default=0)
+    stayTime = Column(String, default="0s")
+    shareCount = Column(Integer, default=0)
