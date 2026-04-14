@@ -9,7 +9,7 @@ from api.naver_crawler import fetch_business_opportunities
 from api.mail_sender import send_proposal_email
 from api.koneps_crawler import fetch_koneps_opportunities
 from api.generate_email import compose_proposal_email
-
+from api.gemini_analysis import analyze_customer_interest 
 # 데이터베이스 연결
 from schemas import EmailRequest, ProposalRequest
 from database import engine, SessionLocal, get_db
@@ -77,27 +77,33 @@ async def generate_proposal(req: ProposalRequest, db: Session = Depends(get_db))
         # 1. AI 메일 내용 생성
         email_content = compose_proposal_email(req.dict())
         
-        # 2. DB 저장 (먼저 저장해서 ID를 생성합니다)
+        # 2. DB 저장
         new_mail = models.SentMail(
             recipient=req.email,
             company=req.partner_name,
             subject=f"[{req.partner_name}] 솔루션 제안서",
             content=email_content,
             sentDate=datetime.now().strftime('%Y-%m-%d'),
-            status="Unread"
+            status="분석 전",
+            interestScore=0,
+            citrix_click=0,
+            netscaler_click=0,
+            nubo_click=0,
+            daou_click=0
         )
         db.add(new_mail)
-        db.flush() # ✅ commit 전 ID를 미리 할당받기 위해 flush 사용
+        db.flush() 
         
-        # 3. 실제 메일 발송 (할당받은 new_mail.id를 넘겨줍니다)
+        # 3. 실제 메일 발송 (수정 포인트: company 추가!)
         email_result = send_proposal_email(
             receiver_email=req.email,
             subject=f"[{req.partner_name}] 솔루션 제안서",
             content=email_content,
-            mail_id=str(new_mail.id) # ✅ DB ID를 추적 ID로 사용!
+            mail_id=str(new_mail.id),
+            company=req.partner_name  # 👈 이 부분을 추가하세요!
         )
 
-        db.commit() # 최종 저장
+        db.commit()
 
         return {
             "content": email_content,
@@ -105,8 +111,10 @@ async def generate_proposal(req: ProposalRequest, db: Session = Depends(get_db))
         }
     except Exception as e:
         db.rollback()
+        print(f"❌ 제안서 생성 에러: {e}") 
         raise HTTPException(status_code=500, detail=str(e))
 
+        
 # 2. 메일 리스트 조회
 @app.get("/api/sent-mails")
 async def get_sent_mails(db: Session = Depends(get_db)):
@@ -266,46 +274,38 @@ async def track_access(mail_id: str, request: Request):
     return {"status": "success", "ip": client_ip}
 
 
-@app.get("/api/v1/track/open/{mail_id}")
-async def track_open(mail_id: str):
-    # 1. 터미널에 로그 남기기
-    print(f"📧 [메일 오픈 로그] 고객 ID: {mail_id}님이 방금 메일을 열었습니다!")
-
-    # 2. 실제 로고 이미지 파일 경로 (프로젝트 폴더 기준)
-    # 이미지 파일이 backend/images/daou_logo.png 에 있다고 가정합니다.
-    image_path = os.path.join("images", "daou_logo.jpg") 
-
-    # 3. 이미지 파일이 있으면 보내주고, 없으면 기존처럼 1픽셀 투명 이미지를 보냅니다.
-    if os.path.exists(image_path):
-        return FileResponse(image_path)
-    else:
-        # 파일이 없을 경우를 대비한 최소한의 방어 코드
-        pixel_data = b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b'
-        return Response(content=pixel_data, media_type="image/gif")
-
 
 @app.get("/api/v1/track/click/{mail_id}/{target}")
-async def track_click(mail_id: str, target: str):
-    # 1. 제품별 맞춤 로그 메시지 설정
-    product_names = {
-        "citrix": "Citrix (가상화/VDI)",
-        "netscaler": "NetScaler (ADC/L4 스위치)",
-        "nubo": "Nubo (VMI/모바일 가상화)",
-        "daoudata": "다우데이타 공식 홈페이지"
+async def track_click(mail_id: int, target: str, db: Session = Depends(get_db)):
+    # 💡 수정: SentMail -> models.SentMail
+    mail = db.query(models.SentMail).filter(models.SentMail.id == mail_id).first()
+    if not mail:
+        raise HTTPException(status_code=404, detail="Mail not found")
+
+    # 1. 클릭 카운트 업데이트
+    target = target.lower()
+    if target == "citrix": mail.citrix_click += 1
+    elif target == "netscaler": mail.netscaler_click += 1
+    elif target == "nubo": mail.nubo_click += 1
+    elif target == "daoudata": mail.daou_click += 1
+
+    # 2. Gemini 분석 호출
+    click_data = {
+        "citrix": mail.citrix_click,
+        "netscaler": mail.netscaler_click,
+        "nubo": mail.nubo_click,
+        "daou": mail.daou_click
     }
     
-    friendly_name = product_names.get(target.lower(), target)
+    try:
+        score, summary = analyze_customer_interest(click_data)
+        mail.interestScore = score
+        mail.status = summary
+    except Exception as e:
+        print(f"⚠️ AI 분석 실패: {e}")
 
-    # 2. 터미널 로그 출력
-    print(f"\n📢 [클릭 이벤트 발생]")
-    print(f"👤 고객 ID : {mail_id}")
-    print(f"🎯 클릭 대상 : {friendly_name}")
+    db.commit()
 
-    # 3. 이동 경로 설정
     if target == "daoudata":
-        redirect_url = "https://www.daoudata.co.kr/"
-    else:
-        # 리액트 페이지로 제품 정보를 넘겨줍니다.
-        redirect_url = f"http://localhost:5173/view/{mail_id}?product={target}"
-    
-    return RedirectResponse(url=redirect_url)
+        return RedirectResponse(url="https://www.daoudata.co.kr/")
+    return RedirectResponse(url=f"http://localhost:5173/view/{mail_id}?product={target}")

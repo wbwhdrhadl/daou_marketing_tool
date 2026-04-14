@@ -44,9 +44,11 @@ class SentMail(Base):
     subject = Column(String)
     content = Column(Text)
     sentDate = Column(String)
-    status = Column(String, default="Unread")
-    interestScore = Column(Integer, default=70)
-    readCount = Column(Integer, default=0)
-    copyCount = Column(Integer, default=0)
-    stayTime = Column(String, default="0s")
-    shareCount = Column(Integer, default=0)
+    # Gemini AI가 채워넣을 필드
+    status = Column(String, default="분석 전") 
+    interestScore = Column(Integer, default=0)
+    # 실시간 클릭 카운트 필드
+    citrix_click = Column(Integer, default=0)
+    netscaler_click = Column(Integer, default=0)
+    nubo_click = Column(Integer, default=0)
+    daou_click = Column(Integer, default=0)

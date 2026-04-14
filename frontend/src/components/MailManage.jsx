@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  Mail, Eye, Copy, Share2, Clock, BarChart3, X 
+  Mail, Eye, MousePointerClick, BarChart3, X, Globe 
 } from 'lucide-react';
 
 const MailManage = () => {
@@ -9,7 +9,7 @@ const MailManage = () => {
   const [selectedMail, setSelectedMail] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 데이터 불러오기
+  // 1. 데이터 불러오기
   useEffect(() => {
     const fetchMails = async () => {
       try {
@@ -27,21 +27,15 @@ const MailManage = () => {
     fetchMails();
   }, []);
 
-  // 🗑️ 삭제 처리 함수
+  // 2. 삭제 처리 함수
   const handleDelete = async (e, mailId) => {
-    e.stopPropagation(); // 카드 클릭 이벤트(상세보기) 전파 방지
-    
+    e.stopPropagation();
     if (!window.confirm("이 발송 히스토리를 삭제하시겠습니까?")) return;
 
     try {
-      // 백엔드 DB 삭제 요청
       await axios.delete(`http://localhost:8000/api/sent-mails/${mailId}`);
-      
-      // 프론트엔드 상태 업데이트
       const updatedMails = sentMails.filter(mail => mail.id !== mailId);
       setSentMails(updatedMails);
-      
-      // 삭제한 메일이 현재 선택된 메일이라면 선택 해제
       if (selectedMail?.id === mailId) {
         setSelectedMail(updatedMails.length > 0 ? updatedMails[0] : null);
       }
@@ -52,18 +46,27 @@ const MailManage = () => {
     }
   };
 
+  // 3. 상단 통계 아이콘 및 로직 수정
   const statIcons = {
     '전체 발송': <Mail size={20}/>,
     '평균 오픈율': <Eye size={20}/>,
-    '콘텐츠 복사': <Copy size={20}/>,
+    '제품 클릭 총합': <MousePointerClick size={20}/>,
     '최고 관심도': <BarChart3 size={20}/>
   };
 
   const mailStats = [
     { label: '전체 발송', value: `${sentMails.length}건`, color: 'text-blue-500' },
-    { label: '평균 오픈율', value: `${sentMails.length > 0 ? (sentMails.filter(m => m.status === 'Read').length / sentMails.length * 100).toFixed(0) : 0}%`, color: 'text-emerald-500' },
-    { label: '콘텐츠 복사', value: `${sentMails.reduce((acc, cur) => acc + (cur.copyCount || 0), 0)}회`, color: 'text-orange-500' },
-    { label: '최고 관심도', value: `${sentMails.length > 0 ? Math.max(...sentMails.map(m => m.interestScore)) : 0}%`, color: 'text-purple-500' }
+    { 
+      label: '평균 오픈율', 
+      value: `${sentMails.length > 0 ? (sentMails.filter(m => m.status !== '분석 전').length / sentMails.length * 100).toFixed(0) : 0}%`, 
+      color: 'text-emerald-500' 
+    },
+    { 
+      label: '제품 클릭 총합', 
+      value: `${sentMails.reduce((acc, cur) => acc + (cur.citrix_click || 0) + (cur.netscaler_click || 0) + (cur.nubo_click || 0), 0)}회`, 
+      color: 'text-orange-500' 
+    },
+    { label: '최고 관심도', value: `${sentMails.length > 0 ? Math.max(...sentMails.map(m => m.interestScore || 0)) : 0}%`, color: 'text-purple-500' }
   ];
 
   if (loading) return <div className="p-10 text-center font-bold">데이터 로딩 중...</div>;
@@ -98,11 +101,9 @@ const MailManage = () => {
                   : 'border-white bg-white hover:border-slate-200'
                 } shadow-sm`}
               >
-                {/* ❌ 우측 상단 삭제 버튼 (마우스 오버 시 노출) */}
                 <button
                   onClick={(e) => handleDelete(e, mail.id)}
                   className="absolute top-6 right-6 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all opacity-0 group-hover:opacity-100 z-10"
-                  title="삭제"
                 >
                   <X size={18} />
                 </button>
@@ -110,9 +111,9 @@ const MailManage = () => {
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                      mail.status === 'Read' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                      mail.status !== '분석 전' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
                     }`}>
-                      {mail.status === 'Read' ? '읽음' : '미확인'}
+                      {mail.status !== '분석 전' ? '확인됨' : '미확인'}
                     </span>
                     <span className="text-xs font-bold text-slate-400">{mail.sentDate}</span>
                   </div>
@@ -132,7 +133,7 @@ const MailManage = () => {
           )}
         </div>
 
-        {/* 상세 분석 영역 */}
+        {/* 상세 분석 영역 (제품별 클릭 위주로 수정) */}
         <div className="lg:col-span-5">
           {selectedMail ? (
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden sticky top-8">
@@ -143,14 +144,15 @@ const MailManage = () => {
               
               <div className="p-8 space-y-8">
                 <div className="grid grid-cols-2 gap-4">
-                  <DetailStatCard icon={<Eye size={16}/>} label="조회 횟수" value={`${selectedMail.readCount || 0}회`} color="blue" />
-                  <DetailStatCard icon={<Copy size={16}/>} label="텍스트 복사" value={`${selectedMail.copyCount || 0}회`} color="orange" />
-                  <DetailStatCard icon={<Clock size={16}/>} label="총 체류 시간" value={selectedMail.stayTime || "0s"} color="purple" />
-                  <DetailStatCard icon={<Share2 size={16}/>} label="공유/전달" value={`${selectedMail.shareCount || 0}회`} color="emerald" />
+                  <DetailStatCard icon={<MousePointerClick size={16}/>} label="Citrix 클릭" value={`${selectedMail.citrix_click || 0}회`} color="blue" />
+                  <DetailStatCard icon={<MousePointerClick size={16}/>} label="NetScaler 클릭" value={`${selectedMail.netscaler_click || 0}회`} color="orange" />
+                  <DetailStatCard icon={<MousePointerClick size={16}/>} label="Nubo VMI 클릭" value={`${selectedMail.nubo_click || 0}회`} color="purple" />
+                  <DetailStatCard icon={<Globe size={16}/>} label="홈페이지 방문" value={`${selectedMail.daou_click || 0}회`} color="emerald" />
                 </div>
+
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">마지막 활동</p>
-                   <p className="text-sm font-bold text-slate-700">{selectedMail.sentDate} 에 마지막으로 확인됨</p>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">AI 분석 상태</p>
+                   <p className="text-sm font-bold text-slate-700">{selectedMail.status}</p>
                 </div>
               </div>
             </div>
