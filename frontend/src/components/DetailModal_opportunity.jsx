@@ -11,7 +11,7 @@ const DetailModal_opportunity = ({ report, onClose, onStartProposal }) => {
     suitability: report.analysis?.availability ?? 50, // 가용성 -> 적합도
     marketTrend: report.analysis?.scalability ?? 50,  // 확장성 -> 시장 성장성
     
-    strengths: report.strengths || ["기존 인프라 호환성", "보안 가이드 준수", "비용 절감"],
+    strengths: report.strengths || ["Zero-Trust", "AI-Ready", "유연한 연결"],
     riskFactor: report.riskFactor || "예산 확보 필요"
   };
   const partners = report.partners || [
@@ -98,7 +98,7 @@ const DetailModal_opportunity = ({ report, onClose, onStartProposal }) => {
 
             <div className="space-y-6">
               <h4 className="flex items-center gap-2 text-sm font-black text-slate-800 tracking-tight">
-                <BarChart3 size={18} className="text-[#004EA1]"/> 파트너사 점유 현황
+                <BarChart3 size={18} className="text-[#004EA1]"/> 성공 사례 기반 파트너사별 점유 비중
               </h4>
               <div className="bg-slate-50 p-6 rounded-3xl border border-dashed border-slate-200 flex flex-col items-center">
                 <div className="w-40 h-40 relative mb-6">
