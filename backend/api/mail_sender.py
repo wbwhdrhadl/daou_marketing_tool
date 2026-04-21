@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ✅ mail_id를 숫자로 받는 것이 좋습니다 (DB의 ID값)
 def send_proposal_email(receiver_email: str, company: str, subject: str, content: str, mail_id: int):
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
@@ -25,7 +24,7 @@ def send_proposal_email(receiver_email: str, company: str, subject: str, content
         msg['To'] = receiver_email
         msg['Subject'] = subject
 
-        # HTML 본문 (다은님이 정한 필드명에 맞춰 링크 수정)
+        # HTML 본문 (나무기술 버튼 및 스타일 정리)
         html_content = f"""
         <html>
             <body style="margin:0; padding:20px; font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f9;">
@@ -39,7 +38,9 @@ def send_proposal_email(receiver_email: str, company: str, subject: str, content
                             {content.replace('\n', '<br>')}
                         </div>
 
-                        <p style="font-weight: bold; color: #333; margin-bottom: 15px; border-left: 4px solid #004EA1; padding-left: 10px;">상세 솔루션 확인하기</p>
+                        <p style="font-weight: bold; color: #333; margin-bottom: 15px; border-left: 4px solid #004EA1; padding-left: 10px;">
+                            상세 솔루션 및 파트너 확인하기
+                        </p>
                         
                         <a href="{ngrok_url}/api/v1/track/click/{mail_id}/citrix" 
                            style="display: block; background: #fff; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px;">
@@ -52,8 +53,13 @@ def send_proposal_email(receiver_email: str, company: str, subject: str, content
                         </a>
 
                         <a href="{ngrok_url}/api/v1/track/click/{mail_id}/nubo" 
-                           style="display: block; background: #fff; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 20px;">
+                           style="display: block; background: #fff; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px;">
                            Nubo(VMI) 솔루션 상세보기
+                        </a>
+
+                        <a href="{ngrok_url}/api/v1/track/click/{mail_id}/namutech" 
+                           style="display: block; background: #E6F0FF; border: 1px solid #004EA1; color: #004EA1; padding: 15px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 20px;">
+                           협력 파트너 [나무기술] 공식 홈페이지 방문
                         </a>
 
                         <div style="text-align: center; margin-top: 25px;">
@@ -81,4 +87,5 @@ def send_proposal_email(receiver_email: str, company: str, subject: str, content
 
         return {"status": "success", "message": "성공"}
     except Exception as e:
+        print(f"Mail send error: {e}")
         return {"status": "error", "message": str(e)}

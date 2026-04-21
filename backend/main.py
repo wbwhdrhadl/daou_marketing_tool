@@ -16,9 +16,10 @@ from database import engine, SessionLocal, get_db
 import models
 from typing import Optional
 from datetime import datetime
-import json
-from fastapi.responses import RedirectResponse
+import json, os
+from fastapi.responses import RedirectResponse, FileResponse
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 app = FastAPI()
 
 
@@ -253,13 +254,6 @@ class DurationData(BaseModel):
     mail_id: str
     duration_seconds: int
 
-# 1. 체류 시간 저장 API
-@app.post("/api/v1/track/duration")
-async def track_duration(data: DurationData):
-    print(f"\n⏳ [체류 시간] 메일 ID {data.mail_id}번 고객이")
-    print(f"⏰ 약 {data.duration_seconds}초 동안 제안서를 정독했습니다.")
-    return {"status": "success"}
-
 # 2. 공유/접속 정보 확인 API (페이지 진입 시 호출)
 @app.get("/api/v1/track/access/{mail_id}")
 async def track_access(mail_id: str, request: Request):
@@ -275,37 +269,62 @@ async def track_access(mail_id: str, request: Request):
 
 
 
-@app.get("/api/v1/track/click/{mail_id}/{target}")
-async def track_click(mail_id: int, target: str, db: Session = Depends(get_db)):
-    # 💡 수정: SentMail -> models.SentMail
+@app.get("/api/v1/track/click/{mail_id}/{product}")
+async def track_click(mail_id: int, product: str, db: Session = Depends(get_db)):
+    # 1. DB 클릭 수 업데이트 로직
     mail = db.query(models.SentMail).filter(models.SentMail.id == mail_id).first()
-    if not mail:
-        raise HTTPException(status_code=404, detail="Mail not found")
-
-    # 1. 클릭 카운트 업데이트
-    target = target.lower()
-    if target == "citrix": mail.citrix_click += 1
-    elif target == "netscaler": mail.netscaler_click += 1
-    elif target == "nubo": mail.nubo_click += 1
-    elif target == "daoudata": mail.daou_click += 1
-
-    # 2. Gemini 분석 호출
-    click_data = {
-        "citrix": mail.citrix_click,
-        "netscaler": mail.netscaler_click,
-        "nubo": mail.nubo_click,
-        "daou": mail.daou_click
-    }
     
-    try:
-        score, summary = analyze_customer_interest(click_data)
-        mail.interestScore = score
-        mail.status = summary
-    except Exception as e:
-        print(f"⚠️ AI 분석 실패: {e}")
+    if mail:
+        if product == "citrix": 
+            mail.citrix_click += 1
+        elif product == "netscaler": 
+            mail.netscaler_click += 1
+        elif product == "nubo": 
+            mail.nubo_click += 1
+        elif product == "namutech": 
+            mail.namutech_click += 1
+        elif product == "daoudata": 
+            mail.daou_click += 1
+        
+        # 2. Gemini 분석 호출 (요청하신 로직 추가)
+        click_data = {
+            "citrix": mail.citrix_click,
+            "netscaler": mail.netscaler_click,
+            "nubo": mail.nubo_click,
+            "daou": mail.daou_click
+        }
+        
+        try:
+            # analyze_customer_interest 함수가 정의되어 있어야 합니다.
+            score, summary = analyze_customer_interest(click_data)
+            mail.interestScore = score
+            mail.status = summary
+        except Exception as e:
+            print(f"⚠️ AI 분석 실패: {e}")
 
-    db.commit()
+        db.commit()
 
-    if target == "daoudata":
+    # 3. 이동할 경로 설정
+    # 제품 PDF 매핑
+    pdf_map = {
+        "citrix": "static/pdfs/citrix_vdi.pdf",
+        "netscaler": "static/pdfs/netscaler_adc.pdf",
+        "nubo": "static/pdfs/nubo_vmi.pdf"
+    }
+
+    # 나무기술 클릭 시 공식 홈페이지로 리다이렉트
+    if product == "namutech":
+        return RedirectResponse(url="https://www.namutech.co.kr/")
+    
+    # 다우데이타 클릭 시 공식 홈페이지로 리다이렉트
+    if product == "daoudata":
         return RedirectResponse(url="https://www.daoudata.co.kr/")
-    return RedirectResponse(url=f"http://localhost:5173/view/{mail_id}?product={target}")
+
+    # 제품 클릭 시 PDF 파일 반환
+    if product in pdf_map:
+        file_path = pdf_map[product]
+        if os.path.exists(file_path):
+            return FileResponse(file_path, media_type='application/pdf')
+
+    # 그 외 기본값은 다우데이타 홈페이지
+    return RedirectResponse(url="https://www.daoudata.co.kr/")

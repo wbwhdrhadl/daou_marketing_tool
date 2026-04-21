@@ -51,4 +51,5 @@ class SentMail(Base):
     citrix_click = Column(Integer, default=0)
     netscaler_click = Column(Integer, default=0)
     nubo_click = Column(Integer, default=0)
+    namutech_click = Column(Integer, default=0)
     daou_click = Column(Integer, default=0)
